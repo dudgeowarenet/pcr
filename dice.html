@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dice — Pam's Casino</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>
+  :root {
+    --bg: #0a0900;
+    --surface: #12100a;
+    --surface2: #1a1810;
+    --border: #2a2310;
+    --accent: #FFD700;
+    --accent2: #ff8c00;
+    --text: #f0ead8;
+    --muted: #7a6a40;
+    --success: #4ade80;
+    --error: #f87171;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 50% 0%, rgba(255,215,0,0.06) 0%, transparent 55%),
+      radial-gradient(ellipse 40% 60% at 90% 80%, rgba(255,60,0,0.03) 0%, transparent 50%);
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 24px;
+    background: rgba(10,9,0,0.9);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+    z-index: 10; flex-shrink: 0;
+    position: sticky; top: 0;
+  }
+
+  .back-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: transparent; border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 14px;
+    color: var(--muted); font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem; cursor: pointer; transition: all 0.2s;
+    text-decoration: none;
+  }
+  .back-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .header-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 900; font-size: 1.2rem;
+    letter-spacing: 0.15em; text-transform: uppercase;
+  }
+  .header-title span {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .pb-display {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255,215,0,0.07);
+    border: 1px solid rgba(255,215,0,0.2);
+    border-radius: 8px; padding: 7px 14px;
+  }
+  .pb-display .pb-label { font-size: 0.72rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+  .pb-display .pb-val { font-family: 'Syne', sans-serif; font-weight: 800; color: var(--accent); font-size: 1rem; }
+
+  /* ── MAIN ── */
+  .game-wrap {
+    display: flex; flex: 1;
+    position: relative; z-index: 1;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 240px; flex-shrink: 0;
+    background: rgba(18,16,10,0.98);
+    border-right: 1px solid var(--border);
+    padding: 20px 16px;
+    display: flex; flex-direction: column; gap: 14px;
+    overflow-y: auto;
+  }
+
+  .sidebar-section {
+    background: rgba(255,215,0,0.03);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px;
+  }
+
+  .sidebar-label {
+    font-size: 0.68rem; font-family: 'Syne', sans-serif;
+    font-weight: 700; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .bet-row { display: flex; gap: 6px; margin-bottom: 8px; }
+  .bet-input-wrap { flex: 1; position: relative; }
+  .bet-input {
+    width: 100%; padding: 10px 12px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 0.95rem;
+    outline: none; transition: border-color 0.2s;
+  }
+  .bet-input:focus { border-color: var(--accent); }
+
+  .half-double { display: flex; gap: 6px; }
+  .adj-btn {
+    flex: 1; padding: 8px 4px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--muted);
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 0.78rem; cursor: pointer; transition: all 0.15s;
+    text-align: center;
+  }
+  .adj-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Mode tabs */
+  .mode-tabs { display: flex; gap: 6px; }
+  .mode-tab {
+    flex: 1; padding: 10px 4px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--muted);
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 0.82rem; cursor: pointer; text-align: center;
+    transition: all 0.15s;
+  }
+  .mode-tab:hover { border-color: var(--accent); color: var(--accent); }
+  .mode-tab.active { background: rgba(255,215,0,0.1); border-color: var(--accent); color: var(--accent); }
+
+  /* Target slider section */
+  .target-display {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px;
+  }
+  .target-label-text { font-size: 0.8rem; color: var(--muted); }
+  .target-number {
+    font-family: 'DM Mono', monospace; font-size: 1.1rem;
+    color: var(--text); font-weight: 500;
+  }
+
+  .slider-wrap { position: relative; padding: 8px 0; }
+  .dice-slider {
+    -webkit-appearance: none;
+    width: 100%; height: 6px;
+    border-radius: 3px; outline: none;
+    cursor: pointer;
+    background: linear-gradient(to right, var(--accent) var(--fill, 50%), #2a2310 var(--fill, 50%));
+    transition: background 0.1s;
+  }
+  .dice-slider.over {
+    background: linear-gradient(to right, #2a2310 var(--fill, 50%), var(--accent) var(--fill, 50%));
+  }
+  .dice-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 3px solid var(--bg);
+    box-shadow: 0 0 10px rgba(255,215,0,0.4);
+    cursor: pointer;
+    transition: box-shadow 0.15s;
+  }
+  .dice-slider::-webkit-slider-thumb:hover {
+    box-shadow: 0 0 16px rgba(255,215,0,0.7);
+  }
+  .dice-slider::-moz-range-thumb {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 3px solid var(--bg);
+    box-shadow: 0 0 10px rgba(255,215,0,0.4);
+    cursor: pointer;
+  }
+
+  .slider-minmax {
+    display: flex; justify-content: space-between;
+    font-family: 'DM Mono', monospace; font-size: 0.7rem;
+    color: var(--muted); margin-top: 4px;
+  }
+
+  /* Stats row inside sidebar */
+  .mini-stats { display: flex; gap: 6px; }
+  .mini-stat {
+    flex: 1; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 6px; text-align: center;
+  }
+  .mini-stat-label { font-size: 0.64rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+  .mini-stat-val { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 0.95rem; margin-top: 2px; }
+
+  /* Multiplier display */
+  .mult-display {
+    text-align: center; padding: 10px 0 4px;
+  }
+  .mult-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; }
+  .mult-val {
+    font-family: 'Syne', sans-serif; font-weight: 900;
+    font-size: 1.8rem;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    transition: all 0.3s;
+  }
+  .profit-val {
+    font-family: 'DM Mono', monospace; font-size: 0.85rem;
+    color: var(--success); margin-top: 2px;
+  }
+
+  /* Action button */
+  .action-btn {
+    width: 100%; padding: 14px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; border-radius: 10px;
+    color: #000; font-family: 'Syne', sans-serif;
+    font-weight: 900; font-size: 0.9rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .action-btn:hover { opacity: 0.88; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(255,215,0,0.25); }
+  .action-btn:active { transform: translateY(0); }
+  .action-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  /* Session stats */
+  .stat-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 4px 0; font-size: 0.8rem;
+  }
+  .stat-key { color: var(--muted); }
+  .stat-v { font-family: 'DM Mono', monospace; }
+
+  /* ── DICE AREA ── */
+  .dice-area {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    padding: 32px; position: relative;
+  }
+
+  .dice-stage {
+    width: min(560px, 100%);
+    display: flex; flex-direction: column; gap: 28px;
+    position: relative;
+  }
+
+  /* Roll result number */
+  .roll-result-wrap {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+  }
+
+  .roll-number {
+    font-family: 'Syne', sans-serif; font-weight: 900;
+    font-size: clamp(4rem, 10vw, 7rem);
+    line-height: 1;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    transition: all 0.2s;
+    min-height: 1.1em;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .roll-number.win {
+    background: linear-gradient(135deg, #4ade80, #22c55e);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: win-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .roll-number.lose {
+    background: linear-gradient(135deg, #f87171, #ef4444);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: lose-shake 0.4s ease;
+  }
+
+  @keyframes win-pop {
+    0% { transform: scale(0.8); }
+    60% { transform: scale(1.12); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes lose-shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-6px); }
+    80% { transform: translateX(6px); }
+  }
+
+  .roll-label {
+    font-family: 'DM Mono', monospace; font-size: 0.85rem;
+    color: var(--muted); letter-spacing: 0.1em;
+  }
+
+  /* Progress bar / number line */
+  .number-line-wrap {
+    position: relative; padding: 0 0;
+  }
+
+  .number-line {
+    position: relative; height: 56px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; overflow: hidden;
+  }
+
+  .nl-fill {
+    position: absolute; top: 0; bottom: 0; left: 0;
+    background: rgba(255,215,0,0.08);
+    border-right: 2px solid var(--accent);
+    transition: width 0.15s;
+  }
+
+  .nl-fill.over-fill {
+    left: auto; right: 0;
+    border-right: none; border-left: 2px solid var(--accent);
+    background: rgba(255,215,0,0.08);
+  }
+
+  .nl-result-marker {
+    position: absolute; top: 0; bottom: 0;
+    width: 3px; border-radius: 2px;
+    transition: left 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    display: none;
+  }
+
+  .nl-result-marker.show { display: block; }
+  .nl-result-marker.win { background: var(--success); box-shadow: 0 0 12px rgba(74,222,128,0.6); }
+  .nl-result-marker.lose { background: var(--error); box-shadow: 0 0 12px rgba(248,113,113,0.6); }
+
+  .nl-labels {
+    display: flex; justify-content: space-between;
+    font-family: 'DM Mono', monospace; font-size: 0.7rem;
+    color: var(--muted); margin-top: 6px; padding: 0 2px;
+  }
+
+  /* Dice info chips */
+  .dice-chips {
+    display: flex; gap: 10px; justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .chip {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 18px; text-align: center;
+    min-width: 100px;
+  }
+  .chip-label { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; }
+  .chip-val {
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 1.1rem; margin-top: 3px;
+  }
+
+  /* History bar */
+  .history-wrap {
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .history-label-row {
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .history-label { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+  .history-dots {
+    display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-start;
+  }
+  .h-dot {
+    width: 28px; height: 28px; border-radius: 6px;
+    font-family: 'DM Mono', monospace; font-size: 0.62rem;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 500;
+    animation: dot-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    flex-shrink: 0;
+  }
+  @keyframes dot-in { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .h-dot.w { background: rgba(74,222,128,0.18); color: var(--success); border: 1px solid rgba(74,222,128,0.3); }
+  .h-dot.l { background: rgba(248,113,113,0.12); color: var(--error); border: 1px solid rgba(248,113,113,0.25); }
+
+  /* Login overlay */
+  .login-prompt {
+    position: absolute; inset: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(10,9,0,0.85); backdrop-filter: blur(4px);
+  }
+  .login-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 32px; text-align: center; max-width: 320px;
+  }
+  .login-box h2 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.3rem; margin-bottom: 8px; }
+  .login-box p { color: var(--muted); font-size: 0.88rem; margin-bottom: 20px; line-height: 1.6; }
+  .login-link {
+    display: inline-block; padding: 12px 28px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px; color: #000;
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 0.85rem; letter-spacing: 0.1em;
+    text-transform: uppercase; text-decoration: none; transition: opacity 0.2s;
+  }
+  .login-link:hover { opacity: 0.85; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 24px;
+    font-family: 'DM Mono', monospace; font-size: 0.85rem;
+    z-index: 100; transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s;
+    opacity: 0; pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  .toast.win-toast { color: var(--success); border-color: rgba(74,222,128,0.3); }
+  .toast.lose-toast { color: var(--error); border-color: rgba(248,113,113,0.3); }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  @media (max-width: 640px) {
+    .sidebar { width: 200px; }
+    .dice-area { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <a class="back-btn" href="index.html">← Back</a>
+  <div class="header-title">🎲 <span>Dice</span></div>
+  <div class="pb-display">
+    <span class="pb-label">💰</span>
+    <span class="pb-val" id="pbDisplay">—</span>
+  </div>
+</div>
+
+<div class="game-wrap">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- Bet Amount -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Bet Amount (PB)</div>
+      <div class="bet-row">
+        <div class="bet-input-wrap">
+          <input class="bet-input" id="betInput" type="number" value="100" min="1" placeholder="Amount…">
+        </div>
+      </div>
+      <div class="half-double">
+        <button class="adj-btn" onclick="adjustBet(0.5)">½</button>
+        <button class="adj-btn" onclick="adjustBet(2)">2×</button>
+        <button class="adj-btn" onclick="setBetMax()">Max</button>
+      </div>
+    </div>
+
+    <!-- Mode: Under / Over -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Win Condition</div>
+      <div class="mode-tabs">
+        <div class="mode-tab active" id="tab-under" onclick="setMode('under')">Roll Under</div>
+        <div class="mode-tab" id="tab-over" onclick="setMode('over')">Roll Over</div>
+      </div>
+    </div>
+
+    <!-- Multiplier / Profit Preview -->
+    <div class="sidebar-section">
+      <div class="mult-display">
+        <div class="mult-label">Payout Multiplier</div>
+        <div class="mult-val" id="multVal">2.00×</div>
+        <div class="profit-val" id="profitVal">+100 PB profit</div>
+      </div>
+    </div>
+
+    <!-- Roll Button -->
+    <button class="action-btn" id="actionBtn" onclick="rollDice()">🎲 Roll Dice</button>
+
+    <!-- Session Stats -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Session</div>
+      <div class="stat-row">
+        <span class="stat-key">Games</span>
+        <span class="stat-v" id="statGames">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-key">Wins</span>
+        <span class="stat-v" id="statWins" style="color:var(--success)">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-key">Net P&L</span>
+        <span class="stat-v" id="statPnl" style="color:var(--muted)">0 PB</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-key">Best Mult</span>
+        <span class="stat-v" id="statBest">—</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- DICE AREA -->
+  <div class="dice-area">
+    <div style="position:relative; width:min(560px,100%);">
+
+      <div class="dice-stage">
+
+        <!-- Big Roll Number -->
+        <div class="roll-result-wrap">
+          <div class="roll-number" id="rollNumber">—</div>
+          <div class="roll-label" id="rollLabel">waiting for roll…</div>
+        </div>
+
+        <!-- Number line / progress track -->
+        <div class="number-line-wrap">
+          <div class="number-line" id="numberLine">
+            <div class="nl-fill" id="nlFill" style="width:49%"></div>
+            <div class="nl-result-marker" id="nlMarker"></div>
+          </div>
+          <div class="nl-labels">
+            <span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>
+          </div>
+        </div>
+
+        <!-- Target slider -->
+        <div class="sidebar-section" style="background:rgba(255,215,0,0.03); border:1px solid var(--border); border-radius:12px; padding:16px;">
+          <div class="target-display">
+            <span class="target-label-text" id="targetLabelText">Roll Under</span>
+            <span class="target-number" id="targetDisplay">50.00</span>
+          </div>
+          <div class="slider-wrap">
+            <input class="dice-slider" id="targetSlider" type="range" min="2" max="98" value="50" step="1" oninput="onSliderChange()">
+          </div>
+          <div class="slider-minmax"><span>2</span><span>98</span></div>
+        </div>
+
+        <!-- Chips: Win Chance / Multiplier / Profit -->
+        <div class="dice-chips">
+          <div class="chip">
+            <div class="chip-label">Win Chance</div>
+            <div class="chip-val" id="chipChance">49.00%</div>
+          </div>
+          <div class="chip">
+            <div class="chip-label">Multiplier</div>
+            <div class="chip-val" id="chipMult">2.00×</div>
+          </div>
+          <div class="chip">
+            <div class="chip-label">Profit</div>
+            <div class="chip-val" id="chipProfit" style="color:var(--success)">+100 PB</div>
+          </div>
+        </div>
+
+        <!-- History -->
+        <div class="history-wrap">
+          <div class="history-label-row">
+            <span class="history-label">Recent Rolls</span>
+            <span class="history-label" id="historyWinRate">—</span>
+          </div>
+          <div class="history-dots" id="historyDots"></div>
+        </div>
+
+      </div>
+
+      <!-- Login overlay -->
+      <div class="login-prompt" id="loginPrompt" style="display:none;">
+        <div class="login-box">
+          <h2>Sign in to play</h2>
+          <p>You need a Pam's Casino account to bet Pam Bucks on Dice.</p>
+          <a class="login-link" href="index.html">Sign In →</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Supabase ──────────────────────────────────────────────────
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let userPB = 0;
+
+// ── Game State ────────────────────────────────────────────────
+let mode = 'under';   // 'under' | 'over'
+let target = 50;      // slider value 2–98
+const HOUSE_EDGE = 0.99; // 1% house edge (99% RTP)
+
+// Session
+let sessionGames = 0;
+let sessionWins = 0;
+let sessionPnl = 0;
+let bestMult = 0;
+let rollHistory = [];
+
+// Rolling lock
+let rolling = false;
+
+// ── Calculations ──────────────────────────────────────────────
+function winChance() {
+  // Roll is 0.00–99.99 (2 decimal)
+  // Under N: numbers 0.00 to N-0.01 → N% chance
+  // Over N: numbers N.01 to 99.99 → (100-N)% chance
+  if (mode === 'under') return target;      // e.g. target=50 → 50% win chance
+  else return 100 - target;                // e.g. target=50 → 50% win chance
+}
+
+function calcMult() {
+  const chance = winChance();
+  if (chance <= 0) return 0;
+  return parseFloat(((100 / chance) * HOUSE_EDGE).toFixed(4));
+}
+
+function calcProfit() {
+  const bet = parseInt(document.getElementById('betInput').value) || 0;
+  return Math.round(bet * calcMult()) - bet;
+}
+
+// ── Slider + Mode ─────────────────────────────────────────────
+function setMode(m) {
+  mode = m;
+  document.getElementById('tab-under').classList.toggle('active', m === 'under');
+  document.getElementById('tab-over').classList.toggle('active', m === 'over');
+  document.getElementById('targetLabelText').textContent = m === 'under' ? 'Roll Under' : 'Roll Over';
+  updateSliderStyle();
+  updateDisplays();
+}
+
+function onSliderChange() {
+  target = parseInt(document.getElementById('targetSlider').value);
+  updateSliderStyle();
+  updateDisplays();
+}
+
+function updateSliderStyle() {
+  const slider = document.getElementById('targetSlider');
+  const pct = ((target - 2) / (98 - 2)) * 100;
+  const fill = document.getElementById('nlFill');
+
+  slider.style.setProperty('--fill', pct + '%');
+
+  if (mode === 'under') {
+    slider.classList.remove('over');
+    fill.className = 'nl-fill';
+    fill.style.width = pct + '%';
+    fill.style.right = 'auto';
+    fill.style.left = '0';
+  } else {
+    slider.classList.add('over');
+    fill.className = 'nl-fill over-fill';
+    fill.style.width = (100 - pct) + '%';
+    fill.style.left = 'auto';
+    fill.style.right = '0';
+  }
+}
+
+function updateDisplays() {
+  const mult = calcMult();
+  const chance = winChance();
+  const bet = parseInt(document.getElementById('betInput').value) || 0;
+  const profit = Math.round(bet * mult) - bet;
+
+  document.getElementById('targetDisplay').textContent = target.toFixed(2);
+  document.getElementById('multVal').textContent = mult.toFixed(2) + '×';
+  document.getElementById('profitVal').textContent = (profit >= 0 ? '+' : '') + profit.toLocaleString() + ' PB';
+  document.getElementById('profitVal').style.color = profit >= 0 ? 'var(--success)' : 'var(--error)';
+  document.getElementById('chipChance').textContent = chance.toFixed(2) + '%';
+  document.getElementById('chipMult').textContent = mult.toFixed(2) + '×';
+  document.getElementById('chipProfit').textContent = (profit >= 0 ? '+' : '') + profit.toLocaleString() + ' PB';
+  document.getElementById('chipProfit').style.color = profit >= 0 ? 'var(--success)' : 'var(--error)';
+}
+
+// ── Roll ──────────────────────────────────────────────────────
+async function rollDice() {
+  if (!currentUser || rolling) return;
+
+  const bet = parseInt(document.getElementById('betInput').value);
+  if (isNaN(bet) || bet < 1) { showToast('Enter a valid bet', 'lose'); return; }
+  if (bet > userPB) { showToast('Not enough PB!', 'lose'); return; }
+
+  rolling = true;
+  document.getElementById('actionBtn').disabled = true;
+
+  // Deduct bet
+  userPB -= bet;
+  updatePBDisplay();
+
+  // Animate roll (rapid number cycling)
+  await animateRoll();
+
+  // Generate result (0.00 – 99.99)
+  const result = parseFloat((Math.random() * 100).toFixed(2));
+  let won;
+  if (mode === 'under') won = result < target;
+  else won = result > target;
+
+  // Show result on number line
+  const marker = document.getElementById('nlMarker');
+  const resultPct = (result / 100) * 100;
+  marker.style.left = resultPct + '%';
+  marker.className = 'nl-result-marker show ' + (won ? 'win' : 'lose');
+
+  // Show result number
+  const rollNum = document.getElementById('rollNumber');
+  rollNum.textContent = result.toFixed(2);
+  rollNum.className = 'roll-number ' + (won ? 'win' : 'lose');
+
+  // Condition label
+  const condText = mode === 'under'
+    ? `${result.toFixed(2)} < ${target} → ${won ? 'WIN' : 'LOSE'}`
+    : `${result.toFixed(2)} > ${target} → ${won ? 'WIN' : 'LOSE'}`;
+  document.getElementById('rollLabel').textContent = condText;
+
+  // Audio
+  if (won) playWin(); else playLose();
+
+  // Payout
+  const mult = calcMult();
+  sessionGames++;
+  if (won) {
+    sessionWins++;
+    const payout = Math.round(bet * mult);
+    const net = payout - bet;
+    userPB += payout;
+    sessionPnl += net;
+    if (mult > bestMult) bestMult = mult;
+    updatePBDisplay();
+    showToast(`+${net.toLocaleString()} PB  •  ${mult.toFixed(2)}×`, 'win');
+  } else {
+    sessionPnl -= bet;
+    showToast(`Lost ${bet.toLocaleString()} PB`, 'lose');
+  }
+
+  // Update DB
+  try {
+    await db.from('users').update({ pam_bucks: userPB }).eq('id', currentUser.id);
+    currentUser.pam_bucks = userPB;
+  } catch(e) {}
+
+  // History
+  rollHistory.unshift({ result, won, mult: won ? mult : null });
+  if (rollHistory.length > 20) rollHistory.pop();
+  updateHistory();
+  updateSessionStats();
+
+  rolling = false;
+  document.getElementById('actionBtn').disabled = false;
+}
+
+// ── Roll animation ────────────────────────────────────────────
+function animateRoll() {
+  return new Promise(resolve => {
+    const rollNum = document.getElementById('rollNumber');
+    rollNum.className = 'roll-number';
+    let frames = 0;
+    const totalFrames = 18;
+    const interval = setInterval(() => {
+      rollNum.textContent = (Math.random() * 100).toFixed(2);
+      playTick();
+      frames++;
+      if (frames >= totalFrames) {
+        clearInterval(interval);
+        resolve();
+      }
+    }, 40);
+  });
+}
+
+// ── History ───────────────────────────────────────────────────
+function updateHistory() {
+  const container = document.getElementById('historyDots');
+  container.innerHTML = '';
+  rollHistory.forEach(r => {
+    const dot = document.createElement('div');
+    dot.className = 'h-dot ' + (r.won ? 'w' : 'l');
+    dot.textContent = r.result.toFixed(0);
+    dot.title = r.result.toFixed(2) + (r.won ? ` ✓ ${r.mult.toFixed(2)}×` : ' ✗');
+    container.appendChild(dot);
+  });
+  const wins = rollHistory.filter(r => r.won).length;
+  document.getElementById('historyWinRate').textContent = rollHistory.length
+    ? `${wins}/${rollHistory.length} wins`
+    : '—';
+}
+
+// ── Session Stats ─────────────────────────────────────────────
+function updateSessionStats() {
+  document.getElementById('statGames').textContent = sessionGames;
+  document.getElementById('statWins').textContent = sessionWins;
+  const pnlEl = document.getElementById('statPnl');
+  pnlEl.textContent = (sessionPnl >= 0 ? '+' : '') + sessionPnl.toLocaleString() + ' PB';
+  pnlEl.style.color = sessionPnl > 0 ? 'var(--success)' : sessionPnl < 0 ? 'var(--error)' : 'var(--muted)';
+  document.getElementById('statBest').textContent = bestMult > 0 ? bestMult.toFixed(2) + '×' : '—';
+}
+
+function updatePBDisplay() {
+  document.getElementById('pbDisplay').textContent = userPB.toLocaleString() + ' PB';
+}
+
+// ── Toast ─────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (type === 'win' ? 'win-toast' : 'lose-toast');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = 'toast'; }, 2200);
+}
+
+// ── Bet helpers ───────────────────────────────────────────────
+function adjustBet(factor) {
+  const inp = document.getElementById('betInput');
+  const v = Math.max(1, Math.min(userPB, Math.round(parseInt(inp.value || 1) * factor)));
+  inp.value = v;
+  updateDisplays();
+}
+
+function setBetMax() {
+  document.getElementById('betInput').value = userPB;
+  updateDisplays();
+}
+
+// ── Audio ─────────────────────────────────────────────────────
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function resume() { if (audioCtx.state === 'suspended') audioCtx.resume(); }
+
+// Dice rattle — called each frame of the roll animation
+function playTick() {
+  resume();
+  const t = audioCtx.currentTime;
+
+  // Short noise burst (dice clatter)
+  const bufSize = audioCtx.sampleRate * 0.04;
+  const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1);
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buf;
+
+  // Bandpass filter to make it sound like a wooden rattle
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.value = 800 + Math.random() * 400;
+  filter.Q.value = 1.5;
+
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.18, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+
+  noise.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+  noise.start(t); noise.stop(t + 0.04);
+
+  // Light click transient on top
+  const click = audioCtx.createOscillator();
+  const clickGain = audioCtx.createGain();
+  click.type = 'sine';
+  click.frequency.setValueAtTime(600 + Math.random() * 300, t);
+  clickGain.gain.setValueAtTime(0.06, t);
+  clickGain.gain.exponentialRampToValueAtTime(0.001, t + 0.025);
+  click.connect(clickGain); clickGain.connect(audioCtx.destination);
+  click.start(t); click.stop(t + 0.025);
+}
+
+// Win — rising coin jingle
+function playWin() {
+  resume();
+  const t = audioCtx.currentTime;
+
+  // Ascending arpeggio — C major pentatonic
+  [523, 659, 784, 880, 1047].forEach((freq, i) => {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    const st = t + i * 0.07;
+    osc.frequency.setValueAtTime(freq, st);
+    osc.frequency.exponentialRampToValueAtTime(freq * 1.01, st + 0.12); // tiny pitch wobble
+    gain.gain.setValueAtTime(0, st);
+    gain.gain.linearRampToValueAtTime(0.13, st + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, st + 0.3);
+    osc.start(st); osc.stop(st + 0.3);
+  });
+
+  // Coin shimmer — high noise burst
+  const bufSize = audioCtx.sampleRate * 0.15;
+  const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1);
+  const shimmer = audioCtx.createBufferSource();
+  shimmer.buffer = buf;
+  const hpf = audioCtx.createBiquadFilter();
+  hpf.type = 'highpass'; hpf.frequency.value = 6000;
+  const shimGain = audioCtx.createGain();
+  shimGain.gain.setValueAtTime(0.07, t + 0.3);
+  shimGain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+  shimmer.connect(hpf); hpf.connect(shimGain); shimGain.connect(audioCtx.destination);
+  shimmer.start(t + 0.3); shimmer.stop(t + 0.5);
+}
+
+// Lose — low thud + descending groan
+function playLose() {
+  resume();
+  const t = audioCtx.currentTime;
+
+  // Thud — low noise punch
+  const bufSize = audioCtx.sampleRate * 0.12;
+  const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1);
+  const thud = audioCtx.createBufferSource();
+  thud.buffer = buf;
+  const lpf = audioCtx.createBiquadFilter();
+  lpf.type = 'lowpass'; lpf.frequency.value = 180;
+  const thudGain = audioCtx.createGain();
+  thudGain.gain.setValueAtTime(0.5, t);
+  thudGain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+  thud.connect(lpf); lpf.connect(thudGain); thudGain.connect(audioCtx.destination);
+  thud.start(t); thud.stop(t + 0.12);
+
+  // Descending groan
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sawtooth';
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.frequency.setValueAtTime(220, t + 0.05);
+  osc.frequency.exponentialRampToValueAtTime(55, t + 0.5);
+  gain.gain.setValueAtTime(0.10, t + 0.05);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+  osc.start(t + 0.05); osc.stop(t + 0.5);
+}
+
+// ── Auth / Init ───────────────────────────────────────────────
+async function init() {
+  updateSliderStyle();
+  updateDisplays();
+
+  const saved = localStorage.getItem('vault_session');
+  if (!saved) {
+    document.getElementById('loginPrompt').style.display = 'flex';
+    document.getElementById('actionBtn').disabled = true;
+    document.getElementById('pbDisplay').textContent = 'Not logged in';
+    return;
+  }
+
+  const { username } = JSON.parse(saved);
+  const { data, error } = await db.from('users').select('*').eq('username', username).single();
+  if (error || !data) {
+    document.getElementById('loginPrompt').style.display = 'flex';
+    return;
+  }
+
+  if (data.status === 'terminated') {
+    document.getElementById('loginPrompt').style.display = 'flex';
+    document.getElementById('loginPrompt').querySelector('h2').textContent = 'Account Terminated';
+    document.getElementById('loginPrompt').querySelector('p').textContent = 'Your account cannot access Dice.';
+    document.getElementById('loginPrompt').querySelector('a').style.display = 'none';
+    return;
+  }
+
+  currentUser = data;
+  userPB = data.pam_bucks ?? 10000;
+  updatePBDisplay();
+}
+
+document.getElementById('betInput').addEventListener('input', updateDisplays);
+
+init();
+</script>
+</body>
+</html>

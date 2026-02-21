@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Powerball — Pam's Casino</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>
+  :root {
+    --bg: #0a0900;
+    --surface: #12100a;
+    --border: #2a2310;
+    --accent: #FFD700;
+    --accent2: #ff8c00;
+    --text: #f0ead8;
+    --muted: #7a6a40;
+    --success: #4ade80;
+    --error: #f87171;
+    --red: #ef4444;
+    --red-glow: rgba(239,68,68,0.35);
+    --gold-glow: rgba(255,215,0,0.25);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 70% 40% at 50% 0%, rgba(239,68,68,0.06) 0%, transparent 55%),
+      radial-gradient(ellipse 50% 50% at 80% 80%, rgba(255,215,0,0.05) 0%, transparent 50%),
+      radial-gradient(ellipse 40% 40% at 10% 60%, rgba(255,140,0,0.04) 0%, transparent 50%);
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 24px;
+    background: rgba(10,9,0,0.9);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+    z-index: 10; flex-shrink: 0;
+    position: sticky; top: 0;
+  }
+
+  .back-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: transparent; border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 14px;
+    color: var(--muted); font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem; cursor: pointer; transition: all 0.2s;
+    text-decoration: none;
+  }
+  .back-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .header-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 900; font-size: 1.2rem;
+    letter-spacing: 0.15em; text-transform: uppercase;
+  }
+  .header-title span {
+    background: linear-gradient(135deg, var(--red), #ff8c00);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .pb-display {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255,215,0,0.07);
+    border: 1px solid rgba(255,215,0,0.2);
+    border-radius: 8px; padding: 7px 14px;
+  }
+  .pb-display .pb-label { font-size: 0.72rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+  .pb-display .pb-val { font-family: 'Syne', sans-serif; font-weight: 800; color: var(--accent); font-size: 1rem; }
+
+  /* ── MAIN ── */
+  .main {
+    flex: 1; overflow-y: auto;
+    padding: 32px 24px;
+    position: relative; z-index: 1;
+    max-width: 700px; margin: 0 auto; width: 100%;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    text-align: center; margin-bottom: 36px;
+  }
+  .hero-eyebrow {
+    font-family: 'Syne', sans-serif; font-size: 0.72rem; font-weight: 700;
+    letter-spacing: 0.25em; text-transform: uppercase; color: var(--red);
+    margin-bottom: 10px;
+  }
+  .hero-title {
+    font-family: 'Syne', sans-serif; font-weight: 900; font-size: clamp(2.2rem, 6vw, 3.5rem);
+    letter-spacing: -0.02em; line-height: 1;
+    background: linear-gradient(135deg, #fff 30%, var(--accent) 70%, var(--red));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; margin-bottom: 10px;
+  }
+  .hero-sub { color: var(--muted); font-size: 0.88rem; }
+
+  /* ── DRAW TIMER ── */
+  .draw-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px 24px;
+    margin-bottom: 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px;
+  }
+  .draw-card-left { flex: 1; }
+  .draw-label {
+    font-family: 'Syne', sans-serif; font-size: 0.68rem; font-weight: 700;
+    letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .draw-time {
+    font-family: 'DM Mono', monospace; font-size: 1.5rem; font-weight: 500;
+    color: var(--text);
+  }
+  .draw-time.live {
+    color: var(--red);
+    animation: pulse 1s ease infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+  .draw-status-badge {
+    padding: 6px 14px; border-radius: 20px;
+    font-family: 'Syne', sans-serif; font-size: 0.72rem; font-weight: 800;
+    letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap;
+  }
+  .draw-status-badge.open {
+    background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.3);
+    color: var(--success);
+  }
+  .draw-status-badge.closed {
+    background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
+    color: var(--red);
+  }
+  .draw-status-badge.live-badge {
+    background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4);
+    color: var(--red); animation: pulse 1s ease infinite;
+  }
+
+  /* ── BUY TICKET SECTION ── */
+  .buy-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px; padding: 24px;
+    margin-bottom: 20px; position: relative; overflow: hidden;
+  }
+  .buy-section::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--red), transparent);
+    opacity: 0.5;
+  }
+  .buy-section-title {
+    font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1rem;
+    letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px;
+  }
+  .buy-section-sub { font-size: 0.8rem; color: var(--muted); margin-bottom: 20px; }
+
+  /* ── TICKET PREVIEW ── */
+  .ticket-preview {
+    background: linear-gradient(135deg, #1a0a0a, #0e0808);
+    border: 1px solid rgba(239,68,68,0.25);
+    border-radius: 12px; padding: 20px;
+    margin-bottom: 20px;
+  }
+  .ticket-preview-label {
+    font-family: 'Syne', sans-serif; font-size: 0.65rem; font-weight: 700;
+    letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+  }
+  .ticket-preview-label::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  .balls-row {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .ball {
+    width: 48px; height: 48px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif; font-weight: 900; font-size: 0.95rem;
+    flex-shrink: 0; transition: all 0.3s;
+    position: relative;
+  }
+  .ball.white {
+    background: radial-gradient(circle at 35% 35%, #fff 0%, #d4c89a 60%, #b8a870 100%);
+    color: #1a1200;
+    box-shadow: 0 2px 12px rgba(255,215,0,0.2), inset 0 1px 0 rgba(255,255,255,0.8);
+  }
+  .ball.red {
+    background: radial-gradient(circle at 35% 35%, #ff6b6b 0%, #ef4444 50%, #991b1b 100%);
+    color: #fff;
+    box-shadow: 0 2px 16px var(--red-glow), inset 0 1px 0 rgba(255,150,150,0.6);
+  }
+  .ball.empty {
+    background: rgba(255,255,255,0.04);
+    border: 2px dashed rgba(255,255,255,0.1);
+    color: var(--muted); font-size: 0.7rem; letter-spacing: 0.05em;
+    font-family: 'DM Sans', sans-serif; font-weight: 400;
+  }
+  .ball.matched {
+    animation: ballPop 0.5s cubic-bezier(0.16,1,0.3,1) forwards;
+  }
+  .ball.white.matched {
+    box-shadow: 0 0 20px var(--gold-glow), 0 2px 12px rgba(255,215,0,0.4), inset 0 1px 0 rgba(255,255,255,0.8);
+    outline: 2px solid var(--accent);
+  }
+  .ball.red.matched {
+    box-shadow: 0 0 24px var(--red-glow), 0 2px 16px rgba(239,68,68,0.5), inset 0 1px 0 rgba(255,150,150,0.6);
+    outline: 2px solid var(--red);
+  }
+  @keyframes ballPop {
+    0%{transform:scale(1)} 40%{transform:scale(1.25)} 70%{transform:scale(0.95)} 100%{transform:scale(1)}
+  }
+
+  .ball-separator {
+    color: var(--muted); font-size: 1.2rem; font-weight: 300; flex-shrink: 0;
+  }
+
+  .bet-row {
+    display: flex; gap: 10px; margin-top: 16px;
+  }
+  .bet-input {
+    flex: 1; padding: 11px 14px;
+    background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px; color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 0.95rem;
+    outline: none; transition: border-color 0.2s; text-align: right;
+  }
+  .bet-input:focus { border-color: var(--red); }
+  .bet-input::placeholder { color: var(--muted); }
+
+  .buy-btn {
+    padding: 11px 22px;
+    background: linear-gradient(135deg, var(--red), #c0392b);
+    border: none; border-radius: 10px;
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 0.82rem; letter-spacing: 0.1em;
+    text-transform: uppercase; cursor: pointer; white-space: nowrap;
+    color: #fff; transition: all 0.2s;
+    box-shadow: 0 4px 20px rgba(239,68,68,0.3);
+  }
+  .buy-btn:hover { opacity: 0.88; transform: translateY(-1px); box-shadow: 0 6px 24px rgba(239,68,68,0.4); }
+  .buy-btn:active { transform: translateY(0); }
+  .buy-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  /* ── MY TICKET THIS DRAW ── */
+  .my-ticket-section {
+    background: var(--surface);
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 16px; padding: 24px;
+    margin-bottom: 20px; display: none;
+    position: relative; overflow: hidden;
+  }
+  .my-ticket-section.show { display: block; }
+  .my-ticket-section::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--red), var(--accent), transparent);
+    opacity: 0.6;
+  }
+  .my-ticket-title {
+    font-family: 'Syne', sans-serif; font-weight: 800; font-size: 0.9rem;
+    letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 4px;
+    color: var(--accent);
+  }
+  .my-ticket-sub { font-size: 0.78rem; color: var(--muted); margin-bottom: 16px; }
+
+  /* ── RESULT BANNER ── */
+  .result-banner {
+    border-radius: 12px; padding: 16px 20px; margin-top: 16px;
+    display: none; animation: fadeIn 0.4s ease;
+    text-align: center;
+  }
+  .result-banner.win {
+    background: rgba(74,222,128,0.08); border: 1px solid rgba(74,222,128,0.3);
+    display: block;
+  }
+  .result-banner.loss {
+    background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2);
+    display: block;
+  }
+  .result-banner.pending {
+    background: rgba(255,215,0,0.06); border: 1px solid rgba(255,215,0,0.2);
+    display: block;
+  }
+  .result-big {
+    font-family: 'Syne', sans-serif; font-weight: 900; font-size: 1.6rem;
+    margin-bottom: 4px;
+  }
+  .result-big.win-text { color: var(--success); }
+  .result-big.loss-text { color: var(--error); }
+  .result-big.pending-text { color: var(--accent); }
+  .result-sub { font-size: 0.82rem; color: var(--muted); }
+
+  /* ── PAYOUT TABLE ── */
+  .payout-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px; padding: 24px;
+    margin-bottom: 20px;
+  }
+  .section-title {
+    font-family: 'Syne', sans-serif; font-size: 0.72rem; font-weight: 700;
+    letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 14px;
+  }
+  .payout-table { width: 100%; border-collapse: collapse; }
+  .payout-table tr { border-bottom: 1px solid var(--border); }
+  .payout-table tr:last-child { border-bottom: none; }
+  .payout-table td {
+    padding: 10px 0; font-size: 0.85rem;
+  }
+  .payout-table td:last-child {
+    text-align: right;
+    font-family: 'DM Mono', monospace; font-weight: 500; color: var(--accent);
+  }
+  .payout-table .powerball-row td { color: var(--red); }
+  .payout-table .powerball-row td:last-child { color: var(--red); }
+  .payout-match { color: var(--muted); }
+  .payout-jackpot td { color: var(--accent) !important; }
+  .payout-jackpot td:last-child { color: var(--accent) !important; font-size: 1rem; }
+
+  /* ── DRAW HISTORY ── */
+  .history-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px; padding: 24px;
+    margin-bottom: 20px;
+  }
+  .history-empty {
+    text-align: center; padding: 24px;
+    color: var(--muted); font-size: 0.82rem;
+  }
+  .history-item {
+    padding: 16px 0; border-bottom: 1px solid var(--border);
+    animation: slideRight 0.3s ease;
+  }
+  .history-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .history-item:first-child { padding-top: 0; }
+  @keyframes slideRight { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
+
+  .history-date {
+    font-family: 'Syne', sans-serif; font-size: 0.68rem; font-weight: 700;
+    letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .history-outcome {
+    font-size: 0.72rem; font-family: 'DM Mono', monospace;
+  }
+  .history-outcome.won { color: var(--success); }
+  .history-outcome.lost { color: var(--error); }
+  .history-outcome.no-ticket { color: var(--muted); }
+
+  .history-balls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .history-ball {
+    width: 34px; height: 34px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif; font-weight: 800; font-size: 0.72rem;
+    flex-shrink: 0;
+  }
+  .history-ball.white {
+    background: radial-gradient(circle at 35% 35%, #fff 0%, #d4c89a 60%, #b8a870 100%);
+    color: #1a1200;
+  }
+  .history-ball.red {
+    background: radial-gradient(circle at 35% 35%, #ff6b6b 0%, #ef4444 50%, #991b1b 100%);
+    color: #fff;
+  }
+  .history-ball.white.hi {
+    outline: 2px solid var(--accent);
+    box-shadow: 0 0 10px var(--gold-glow);
+  }
+  .history-ball.red.hi {
+    outline: 2px solid var(--red);
+    box-shadow: 0 0 10px var(--red-glow);
+  }
+  .history-separator { color: var(--muted); font-size: 1rem; flex-shrink: 0; }
+
+  .history-ticket-row {
+    margin-top: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  }
+  .history-ticket-label {
+    font-size: 0.65rem; font-family: 'Syne', sans-serif; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+    margin-right: 4px;
+  }
+
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+  /* ── LOGIN OVERLAY ── */
+  .login-prompt {
+    position: fixed; inset: 0; z-index: 300;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(10,9,0,0.85); backdrop-filter: blur(4px);
+  }
+  .login-prompt.active { display: flex; }
+  .login-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 32px; text-align: center; max-width: 320px;
+  }
+  .login-box h2 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.3rem; margin-bottom: 8px; }
+  .login-box p { color: var(--muted); font-size: 0.88rem; margin-bottom: 20px; line-height: 1.6; }
+  .login-link {
+    display: inline-block; padding: 12px 28px;
+    background: linear-gradient(135deg, var(--red), #c0392b);
+    border-radius: 10px; color: #fff;
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 0.85rem; letter-spacing: 0.1em;
+    text-transform: uppercase; text-decoration: none;
+  }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  @media (max-width: 480px) {
+    .main { padding: 20px 14px; }
+    .ball { width: 40px; height: 40px; font-size: 0.82rem; }
+    .history-ball { width: 28px; height: 28px; font-size: 0.65rem; }
+    .draw-card { flex-direction: column; align-items: flex-start; gap: 10px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <a class="back-btn" href="index.html">← Back</a>
+  <div class="header-title">🔴 <span>Powerball</span></div>
+  <div class="pb-display">
+    <span class="pb-label">💰</span>
+    <span class="pb-val" id="pbDisplay">—</span>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-eyebrow">Daily Draw · 6:00 PM</div>
+    <div class="hero-title">POWERBALL</div>
+    <div class="hero-sub">5 numbers (1–99) + 1 red Powerball (50–99). One ticket per draw.</div>
+  </div>
+
+  <!-- DRAW TIMER -->
+  <div class="draw-card">
+    <div class="draw-card-left">
+      <div class="draw-label" id="drawTimerLabel">Next draw in</div>
+      <div class="draw-time" id="drawTimer">—</div>
+    </div>
+    <div class="draw-status-badge open" id="drawStatusBadge">Open</div>
+  </div>
+
+  <!-- BUY TICKET -->
+  <div class="buy-section" id="buySection">
+    <div class="buy-section-title">Buy Your Ticket</div>
+    <div class="buy-section-sub">Pick your bet amount. 5 numbers + 1 Powerball will be randomly assigned to your ticket.</div>
+
+    <div class="ticket-preview">
+      <div class="ticket-preview-label">Your Numbers</div>
+      <div class="balls-row" id="previewBalls">
+        <div class="ball empty">?</div>
+        <div class="ball empty">?</div>
+        <div class="ball empty">?</div>
+        <div class="ball empty">?</div>
+        <div class="ball empty">?</div>
+        <span class="ball-separator">·</span>
+        <div class="ball red empty">?</div>
+      </div>
+    </div>
+
+    <div class="bet-row">
+      <input class="bet-input" id="betInput" type="number" value="100" min="1" placeholder="Bet amount (PB)">
+      <button class="buy-btn" id="buyBtn" onclick="buyTicket()">🎟️ Buy Ticket</button>
+    </div>
+    <div class="result-banner pending" id="buyMsg" style="display:none;">
+      <div class="result-big pending-text" id="buyMsgBig"></div>
+      <div class="result-sub" id="buyMsgSub"></div>
+    </div>
+  </div>
+
+  <!-- MY TICKET THIS DRAW -->
+  <div class="my-ticket-section" id="myTicketSection">
+    <div class="my-ticket-title">🎟️ Your Ticket — Today's Draw</div>
+    <div class="my-ticket-sub" id="myTicketSub">Draw results at 6:00 PM</div>
+    <div class="balls-row" id="myTicketBalls"></div>
+    <div class="result-banner" id="myTicketResult">
+      <div class="result-big" id="myTicketResultBig"></div>
+      <div class="result-sub" id="myTicketResultSub"></div>
+    </div>
+  </div>
+
+  <!-- PAYOUT TABLE -->
+  <div class="payout-section">
+    <div class="section-title">Prize Table</div>
+    <table class="payout-table">
+      <tr><td>Match 1 number</td><td>2×</td></tr>
+      <tr><td>Match 2 numbers</td><td>10×</td></tr>
+      <tr><td>Match 3 numbers</td><td>90×</td></tr>
+      <tr><td>Match 4 numbers</td><td>400×</td></tr>
+      <tr><td>Match 5 numbers</td><td>1,000×</td></tr>
+      <tr class="powerball-row"><td>🔴 Hit the Powerball</td><td>40×</td></tr>
+      <tr class="payout-jackpot"><td>⚡ Match all 6 (Jackpot!)</td><td>100,000×</td></tr>
+    </table>
+    <div style="margin-top:12px;font-size:0.72rem;color:var(--muted);line-height:1.6;">
+      Normal number matches and Powerball are paid separately and combined. Jackpot requires all 5 numbers + Powerball.
+    </div>
+  </div>
+
+  <!-- DRAW HISTORY -->
+  <div class="history-section">
+    <div class="section-title">Draw History</div>
+    <div id="historyList">
+      <div class="history-empty">No draws yet. First draw is today at 6:00 PM.</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Login prompt -->
+<div class="login-prompt" id="loginPrompt">
+  <div class="login-box">
+    <h2>Sign in to play</h2>
+    <p>You need a Pam's Casino account to buy Powerball tickets.</p>
+    <a class="login-link" href="index.html">Sign In →</a>
+  </div>
+</div>
+
+<script>
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let userPB = 0;
+
+// ── AUTH ─────────────────────────────────────────────────────
+window.onload = async () => {
+  const saved = localStorage.getItem('vault_session');
+  if (!saved) { document.getElementById('loginPrompt').classList.add('active'); return; }
+  const { username } = JSON.parse(saved);
+  const { data, error } = await db.from('users').select('*').eq('username', username).single();
+  if (error || !data) { document.getElementById('loginPrompt').classList.add('active'); return; }
+  if (data.status === 'terminated') {
+    document.getElementById('loginPrompt').classList.add('active');
+    document.querySelector('.login-box h2').textContent = 'Account Terminated';
+    document.querySelector('.login-box p').textContent = 'Your account cannot access Powerball.';
+    document.querySelector('.login-link').style.display = 'none';
+    return;
+  }
+  currentUser = data;
+  userPB = data.pam_bucks ?? 10000;
+  updatePBDisplay();
+  startTimer();
+  loadState();
+};
+
+function updatePBDisplay() {
+  document.getElementById('pbDisplay').textContent = userPB.toLocaleString() + ' PB';
+}
+
+// ── DATE / DRAW HELPERS ───────────────────────────────────────
+// Draw key = "YYYY-MM-DD" based on local date
+function getDrawKey(date) {
+  const d = date || new Date();
+  return d.toISOString().slice(0, 10);
+}
+
+function getDrawTime(date) {
+  const d = date || new Date();
+  const draw = new Date(d);
+  draw.setHours(18, 0, 0, 0); // 6:00 PM local
+  return draw;
+}
+
+function isDrawPast(date) {
+  return new Date() >= getDrawTime(date);
+}
+
+// Seeded RNG so the same draw key always produces the same numbers
+function seededRNG(seed) {
+  let s = 0;
+  for (let i = 0; i < seed.length; i++) s = (Math.imul(31, s) + seed.charCodeAt(i)) | 0;
+  return function() {
+    s = (Math.imul(1664525, s) + 1013904223) | 0;
+    return (s >>> 0) / 4294967296;
+  };
+}
+
+function generateDrawNumbers(drawKey) {
+  const rng = seededRNG('pams-powerball-' + drawKey);
+  const whites = [];
+  while (whites.length < 5) {
+    const n = Math.floor(rng() * 99) + 1;
+    if (!whites.includes(n)) whites.push(n);
+  }
+  const pb = Math.floor(rng() * 50) + 50; // 50–99
+  return { whites, pb };
+}
+
+function generateTicketNumbers() {
+  const whites = [];
+  while (whites.length < 5) {
+    const n = Math.floor(Math.random() * 99) + 1;
+    if (!whites.includes(n)) whites.push(n);
+  }
+  const pb = Math.floor(Math.random() * 50) + 50;
+  return { whites, pb };
+}
+
+// ── TIMER ────────────────────────────────────────────────────
+function startTimer() {
+  updateTimer();
+  setInterval(updateTimer, 1000);
+}
+
+function updateTimer() {
+  const now = new Date();
+  const drawTime = getDrawTime();
+  const diff = drawTime - now;
+  const timerEl = document.getElementById('drawTimer');
+  const labelEl = document.getElementById('drawTimerLabel');
+  const badgeEl = document.getElementById('drawStatusBadge');
+
+  if (diff <= 0 && diff > -60000) {
+    // Draw just happened (within 1 minute window)
+    timerEl.textContent = '🔴 LIVE';
+    timerEl.className = 'draw-time live';
+    labelEl.textContent = 'Drawing now';
+    badgeEl.textContent = 'Live';
+    badgeEl.className = 'draw-status-badge live-badge';
+    checkAndSettleToday();
+  } else if (diff <= 0) {
+    // Past draw time
+    const nextDraw = getDrawTime(new Date(now.getTime() + 86400000));
+    const nextDiff = nextDraw - now;
+    timerEl.textContent = formatCountdown(nextDiff);
+    timerEl.className = 'draw-time';
+    labelEl.textContent = 'Next draw in';
+    badgeEl.textContent = 'Closed';
+    badgeEl.className = 'draw-status-badge closed';
+    checkAndSettleToday();
+  } else {
+    timerEl.textContent = formatCountdown(diff);
+    timerEl.className = 'draw-time';
+    labelEl.textContent = 'Draw closes in';
+    badgeEl.textContent = 'Open';
+    badgeEl.className = 'draw-status-badge open';
+  }
+}
+
+function formatCountdown(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+// ── STATE (localStorage + Supabase) ──────────────────────────
+// State stored in localStorage: { tickets: { "YYYY-MM-DD": { whites, pb, bet } } }
+// Settled results: { results: { "YYYY-MM-DD": { winAmt, matchCount, pbHit, settled } } }
+
+function getLocalState() {
+  try {
+    return JSON.parse(localStorage.getItem('pb_state_' + currentUser.id) || '{}');
+  } catch { return {}; }
+}
+
+function saveLocalState(state) {
+  localStorage.setItem('pb_state_' + currentUser.id, JSON.stringify(state));
+}
+
+function loadState() {
+  renderHistory();
+  const today = getDrawKey();
+  const state = getLocalState();
+  const todayTicket = state.tickets?.[today];
+
+  if (todayTicket) {
+    // Already have a ticket for today
+    showMyTicket(todayTicket, today);
+    hideBuySection();
+  }
+
+  if (isDrawPast()) {
+    checkAndSettleToday();
+  }
+}
+
+function hideBuySection() {
+  document.getElementById('buySection').style.display = 'none';
+}
+
+function showBuySection() {
+  document.getElementById('buySection').style.display = 'block';
+}
+
+// ── BUY TICKET ───────────────────────────────────────────────
+async function buyTicket() {
+  if (!currentUser) { document.getElementById('loginPrompt').classList.add('active'); return; }
+
+  const today = getDrawKey();
+  const state = getLocalState();
+
+  if (state.tickets?.[today]) {
+    showBuyMsg('You already have a ticket for today\'s draw!', 'pending'); return;
+  }
+
+  if (isDrawPast()) {
+    showBuyMsg('Today\'s draw has already happened. Come back tomorrow!', 'pending'); return;
+  }
+
+  const bet = parseInt(document.getElementById('betInput').value);
+  if (isNaN(bet) || bet < 1) { showBuyMsg('Enter a valid bet amount.', 'pending'); return; }
+  if (bet > userPB) { showBuyMsg(`Not enough PB. You have ${userPB.toLocaleString()} PB.`, 'pending'); return; }
+
+  document.getElementById('buyBtn').disabled = true;
+
+  // Deduct PB
+  userPB -= bet;
+  await db.from('users').update({ pam_bucks: userPB }).eq('id', currentUser.id);
+  updatePBDisplay();
+
+  // Generate ticket
+  const { whites, pb } = generateTicketNumbers();
+  const ticket = { whites, pb, bet };
+
+  // Save
+  if (!state.tickets) state.tickets = {};
+  state.tickets[today] = ticket;
+  saveLocalState(state);
+
+  showMyTicket(ticket, today);
+  hideBuySection();
+  renderHistory();
+}
+
+function showBuyMsg(text, type) {
+  const el = document.getElementById('buyMsg');
+  const big = document.getElementById('buyMsgBig');
+  const sub = document.getElementById('buyMsgSub');
+  el.style.display = 'block';
+  el.className = 'result-banner ' + type;
+  big.textContent = text;
+  sub.textContent = '';
+}
+
+// ── SHOW MY TICKET ───────────────────────────────────────────
+function showMyTicket(ticket, drawKey) {
+  const section = document.getElementById('myTicketSection');
+  section.classList.add('show');
+
+  const drawPast = isDrawPast(new Date(drawKey + 'T18:00:00'));
+  document.getElementById('myTicketSub').textContent = drawPast
+    ? 'Draw complete — results below'
+    : 'Draw at 6:00 PM — hold tight!';
+
+  renderTicketBalls('myTicketBalls', ticket, null);
+
+  if (drawPast) {
+    const state = getLocalState();
+    const result = state.results?.[drawKey];
+    if (result) showTicketResult(result, ticket.bet);
+  }
+}
+
+function renderTicketBalls(containerId, ticket, drawNumbers) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+
+  ticket.whites.forEach((n, i) => {
+    const matched = drawNumbers && drawNumbers.whites.includes(n);
+    const ball = makeBall(n, 'white', matched);
+    container.appendChild(ball);
+  });
+
+  const sep = document.createElement('span');
+  sep.className = 'ball-separator';
+  sep.textContent = '·';
+  container.appendChild(sep);
+
+  const pbMatched = drawNumbers && drawNumbers.pb === ticket.pb;
+  container.appendChild(makeBall(ticket.pb, 'red', pbMatched));
+}
+
+function makeBall(n, type, matched) {
+  const div = document.createElement('div');
+  div.className = `ball ${type}${matched ? ' matched' : ''}`;
+  div.textContent = n;
+  return div;
+}
+
+// ── SETTLE ───────────────────────────────────────────────────
+let settled = false;
+
+async function checkAndSettleToday() {
+  if (settled) return;
+  const today = getDrawKey();
+  const state = getLocalState();
+  const ticket = state.tickets?.[today];
+  if (!ticket) return;
+  if (state.results?.[today]) {
+    // Already settled — just display
+    showMyTicket(ticket, today);
+    return;
+  }
+  if (!isDrawPast()) return;
+
+  settled = true;
+
+  const draw = generateDrawNumbers(today);
+  const matchCount = ticket.whites.filter(n => draw.whites.includes(n)).length;
+  const pbHit = ticket.pb === draw.pb;
+  const allSix = matchCount === 5 && pbHit;
+
+  const PAYOUTS = { 0:0, 1:2, 2:10, 3:90, 4:400, 5:1000 };
+  let mult = 0;
+  if (allSix) {
+    mult = 100000;
+  } else {
+    mult += PAYOUTS[matchCount] ?? 0;
+    if (pbHit) mult += 40;
+  }
+
+  const winAmt = Math.round(ticket.bet * mult);
+
+  // Save result
+  if (!state.results) state.results = {};
+  state.results[today] = { winAmt, matchCount, pbHit, allSix, mult, draw, settled: true };
+  saveLocalState(state);
+
+  // Pay out
+  if (winAmt > 0) {
+    userPB += winAmt;
+    await db.from('users').update({ pam_bucks: userPB }).eq('id', currentUser.id);
+    updatePBDisplay();
+  }
+
+  showTicketResult(state.results[today], ticket.bet);
+  renderTicketBalls('myTicketBalls', ticket, draw);
+  renderHistory();
+}
+
+function showTicketResult(result, bet) {
+  const el = document.getElementById('myTicketResult');
+  const big = document.getElementById('myTicketResultBig');
+  const sub = document.getElementById('myTicketResultSub');
+
+  if (result.winAmt > 0) {
+    el.className = 'result-banner win';
+    big.className = 'result-big win-text';
+    if (result.allSix) {
+      big.textContent = `⚡ JACKPOT! +${result.winAmt.toLocaleString()} PB`;
+      sub.textContent = `All 5 numbers + Powerball! ${result.mult.toLocaleString()}× your bet!`;
+    } else {
+      big.textContent = `+${result.winAmt.toLocaleString()} PB (${result.mult}×)`;
+      const parts = [];
+      if (result.matchCount > 0) parts.push(`${result.matchCount} number${result.matchCount>1?'s':''} matched`);
+      if (result.pbHit) parts.push('Powerball hit!');
+      sub.textContent = parts.join(' · ');
+    }
+  } else {
+    el.className = 'result-banner loss';
+    big.className = 'result-big loss-text';
+    big.textContent = 'No Win';
+    sub.textContent = result.matchCount > 0 || result.pbHit
+      ? `${result.matchCount} match${result.matchCount!==1?'es':''} — not enough to pay out`
+      : 'No matches. Better luck next time!';
+  }
+}
+
+// ── HISTORY ─────────────────────────────────────────────────
+function renderHistory() {
+  const state = getLocalState();
+  const list = document.getElementById('historyList');
+
+  // Collect all past draw keys (up to and including yesterday)
+  const today = getDrawKey();
+  const entries = [];
+
+  // Go back up to 30 days
+  for (let i = 0; i <= 30; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = getDrawKey(d);
+    const drawPast = isDrawPast(new Date(key + 'T18:00:00'));
+    if (!drawPast && key === today) continue; // today's draw hasn't happened
+
+    const ticket = state.tickets?.[key];
+    const result = state.results?.[key];
+    const draw = result?.draw || (drawPast ? generateDrawNumbers(key) : null);
+
+    if (!draw) continue; // No draw yet
+
+    entries.push({ key, ticket, result, draw });
+  }
+
+  if (entries.length === 0) {
+    list.innerHTML = '<div class="history-empty">No draws yet. First draw is today at 6:00 PM.</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  entries.forEach(({ key, ticket, result, draw }) => {
+    const item = document.createElement('div');
+    item.className = 'history-item';
+
+    // Date label
+    const dateLabel = new Date(key + 'T12:00:00').toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+    const hadTicket = !!ticket;
+    let outcomeHTML = '';
+    if (hadTicket && result) {
+      if (result.winAmt > 0) {
+        outcomeHTML = `<span class="history-outcome won">+${result.winAmt.toLocaleString()} PB</span>`;
+      } else {
+        outcomeHTML = `<span class="history-outcome lost">No win</span>`;
+      }
+    } else if (!hadTicket) {
+      outcomeHTML = `<span class="history-outcome no-ticket">No ticket</span>`;
+    } else {
+      outcomeHTML = `<span class="history-outcome no-ticket">Pending</span>`;
+    }
+
+    item.innerHTML = `
+      <div class="history-date">
+        <span>${dateLabel}</span>
+        ${outcomeHTML}
+      </div>
+      <div style="margin-bottom:6px;">
+        <span style="font-size:0.65rem;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-right:8px;">Draw</span>
+        <span id="hist-draw-${key}" class="history-balls" style="display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap;"></span>
+      </div>
+      ${hadTicket ? `
+      <div>
+        <span style="font-size:0.65rem;font-family:'Syne',sans-serif;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-right:8px;">Yours</span>
+        <span id="hist-ticket-${key}" class="history-balls" style="display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap;"></span>
+      </div>` : ''}
+    `;
+    list.appendChild(item);
+
+    // Render draw balls
+    renderHistoryBalls(`hist-draw-${key}`, draw.whites, draw.pb, ticket ? ticket.whites : [], ticket ? ticket.pb : null, false);
+    if (hadTicket) {
+      renderHistoryBalls(`hist-ticket-${key}`, ticket.whites, ticket.pb, draw.whites, draw.pb, true);
+    }
+  });
+}
+
+function renderHistoryBalls(containerId, whites, pb, matchWhites, matchPb, isTicket) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+
+  whites.forEach(n => {
+    const matched = isTicket ? matchWhites.includes(n) : (matchWhites.length > 0 && matchWhites.includes(n));
+    const div = document.createElement('div');
+    div.className = `history-ball white${matched ? ' hi' : ''}`;
+    div.textContent = n;
+    container.appendChild(div);
+  });
+
+  const sep = document.createElement('span');
+  sep.className = 'history-separator';
+  sep.textContent = '·';
+  container.appendChild(sep);
+
+  const pbMatched = isTicket ? (matchPb === pb) : (matchPb !== null && matchPb === pb);
+  const pbDiv = document.createElement('div');
+  pbDiv.className = `history-ball red${pbMatched ? ' hi' : ''}`;
+  pbDiv.textContent = pb;
+  container.appendChild(pbDiv);
+}
+</script>
+</body>
+</html>

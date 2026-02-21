@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Stock Market — Pam's Casino</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="config.js"></script>
+<style>
+  :root {
+    --bg: #0a0900;
+    --surface: #12100a;
+    --border: #2a2310;
+    --accent: #FFD700;
+    --accent2: #ff8c00;
+    --text: #f0ead8;
+    --muted: #7a6a40;
+    --success: #4ade80;
+    --error: #f87171;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 50% 0%, rgba(255,215,0,0.05) 0%, transparent 55%),
+      radial-gradient(ellipse 40% 60% at 10% 80%, rgba(255,60,0,0.03) 0%, transparent 50%);
+    pointer-events: none; z-index: 0;
+  }
+
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 24px;
+    position: relative; z-index: 10;
+  }
+
+  .back-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: transparent; border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 14px;
+    color: var(--muted); font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem; cursor: pointer; transition: all 0.2s;
+    text-decoration: none;
+  }
+  .back-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .header-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 900; font-size: 1.2rem;
+    letter-spacing: 0.15em; text-transform: uppercase;
+  }
+  .header-title span {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .main {
+    flex: 1; max-width: 1000px; margin: 0 auto; width: 100%; position: relative; z-index: 1;
+  }
+
+  /* Dashboard Grid */
+  .dashboard {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+  }
+
+  @media (max-width: 850px) { .dashboard { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Stats row inside Chart Panel */
+  .market-stats {
+    display: flex; justify-content: space-between; margin-bottom: 16px;
+    padding-bottom: 16px; border-bottom: 1px solid var(--border);
+  }
+  .stat-group { display: flex; flex-direction: column; gap: 4px; }
+  .stat-label { font-size: 0.75rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; font-family: 'Syne', sans-serif; font-weight: 700; }
+  .stat-val { font-family: 'DM Mono', monospace; font-size: 1.4rem; font-weight: 700; color: var(--text); }
+  .stat-val.gold { color: var(--accent); }
+  
+  .chart-wrapper {
+    flex: 1; min-height: 300px; position: relative;
+  }
+
+  /* Portfolio & Trading Panel */
+  .portfolio-header { margin-bottom: 20px; text-align: center; }
+  .pnl-display { font-family: 'DM Mono', monospace; font-size: 2rem; font-weight: 700; margin-top: 4px; }
+  .pnl-display.pos { color: var(--success); }
+  .pnl-display.neg { color: var(--error); }
+  .pnl-display.neutral { color: var(--text); }
+  
+  .portfolio-stats {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px;
+    background: rgba(255,255,255,0.02); padding: 12px; border-radius: 12px;
+  }
+  .p-stat { text-align: center; }
+  .p-stat .s-lbl { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; margin-bottom: 2px; }
+  .p-stat .s-val { font-family: 'DM Mono', monospace; font-size: 1rem; color: var(--text); }
+
+  /* Trading Controls */
+  .trade-box {
+    background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px; margin-bottom: 12px;
+  }
+  .trade-box-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.9rem; margin-bottom: 12px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }
+  
+  .input-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .trade-input {
+    flex: 1; padding: 12px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 1rem;
+    outline: none; transition: border-color 0.2s;
+  }
+  .trade-input:focus { border-color: var(--accent); }
+  
+  .trade-btn {
+    width: 100%; padding: 12px; border: none; border-radius: 8px;
+    font-family: 'Syne', sans-serif; font-weight: 800; font-size: 0.9rem;
+    text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .trade-btn.buy { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #000; }
+  .trade-btn.buy:hover { opacity: 0.9; transform: translateY(-1px); }
+  .trade-btn.sell { background: transparent; border: 1px solid var(--muted); color: var(--text); }
+  .trade-btn.sell:hover { border-color: var(--error); color: var(--error); }
+  .trade-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .balance-indicator { text-align: right; font-size: 0.75rem; color: var(--muted); margin-bottom: 8px; }
+
+  /* Login overlay */
+  .login-prompt {
+    position: fixed; inset: 0; z-index: 300; display: none; align-items: center; justify-content: center;
+    background: rgba(10,9,0,0.85); backdrop-filter: blur(4px);
+  }
+  .login-prompt.active { display: flex; }
+  .login-box { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px; text-align: center; max-width: 320px; }
+  .login-box h2 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.3rem; margin-bottom: 8px; }
+  .login-box p { color: var(--muted); font-size: 0.88rem; margin-bottom: 20px; line-height: 1.6; }
+  .login-link { display: inline-block; padding: 12px 28px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 10px; color: #000; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 0.85rem; letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <a class="back-btn" href="index.html">← Back</a>
+  <div class="header-title">📈 <span>Pam's Equity</span></div>
+</div>
+
+<div class="main">
+  
+  <div class="dashboard">
+    <div class="panel">
+      <div class="market-stats">
+        <div class="stat-group">
+          <span class="stat-label">Share Price (PB)</span>
+          <span class="stat-val gold" id="share-price-display">--</span>
+        </div>
+        <div class="stat-group" style="text-align: right;">
+          <span class="stat-label">Total Casino Valuation</span>
+          <span class="stat-val" id="valuation-display">--</span>
+        </div>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="marketChart"></canvas>
+      </div>
+      <div style="text-align: center; font-size: 0.7rem; color: var(--muted); margin-top: 10px;">
+        Fixed Supply: 2,000,000 Shares. Price scales directly with total global PB.
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="portfolio-header">
+        <div class="stat-label">Total Gain / PNL</div>
+        <div class="pnl-display neutral" id="pnl-display">0.00 PB</div>
+        <div style="font-size: 0.8rem; color: var(--muted); margin-top: 4px;" id="pnl-percent-display">(0.00%)</div>
+      </div>
+
+      <div class="portfolio-stats">
+        <div class="p-stat">
+          <div class="s-lbl">Your Equity</div>
+          <div class="s-val" id="equity-display">0 PB</div>
+        </div>
+        <div class="p-stat">
+          <div class="s-lbl">Shares Owned</div>
+          <div class="s-val" id="shares-display">0.000</div>
+        </div>
+      </div>
+
+      <div class="trade-box">
+        <div class="trade-box-title">Buy Shares</div>
+        <div class="balance-indicator">Available: <span id="avail-pb-display">0</span> PB</div>
+        <div class="input-row">
+          <input type="number" id="buy-input" class="trade-input" placeholder="Amount in PB" min="1" step="1">
+        </div>
+        <button class="trade-btn buy" onclick="executeTrade('buy')">Invest PB</button>
+      </div>
+
+      <div class="trade-box" style="margin-bottom:0;">
+        <div class="trade-box-title" style="color:var(--muted)">Sell Shares</div>
+        <div class="input-row">
+          <input type="number" id="sell-input" class="trade-input" placeholder="Amount of Shares" min="0.001" step="any">
+        </div>
+        <button class="trade-btn sell" onclick="executeTrade('sell')">Liquidate</button>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div class="login-prompt" id="loginPrompt">
+  <div class="login-box">
+    <h2>Sign in to trade</h2>
+    <p>You need a Pam's Casino account to access the stock market.</p>
+    <a class="login-link" href="index.html">Sign In →</a>
+  </div>
+</div>
+
+<script>
+  const { createClient } = supabase;
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let currentUser = null;
+  let userPB = 0;
+  
+  // Market Variables
+  const TOTAL_SHARES = 700000;
+  let currentValuation = 0;
+  let currentSharePrice = 0;
+  let chartInstance = null;
+
+  // Local Portfolio Structure
+  let portfolio = { shares: 0, invested: 0 }; 
+
+  window.onload = async () => {
+    const saved = localStorage.getItem('vault_session');
+    if (!saved) { document.getElementById('loginPrompt').classList.add('active'); return; }
+    
+    const { username } = JSON.parse(saved);
+    
+    // 1. Fetch User Data
+    const { data: userData, error: userError } = await db.from('users').select('*').eq('username', username).single();
+    if (userError || !userData) { document.getElementById('loginPrompt').classList.add('active'); return; }
+    
+    currentUser = userData;
+    userPB = userData.pam_bucks ?? 0;
+    
+    // 2. Load Local Portfolio
+    const savedPort = localStorage.getItem(`pam_portfolio_${currentUser.id}`);
+    if (savedPort) portfolio = JSON.parse(savedPort);
+
+    // 3. Fetch Global Economy & Calculate Price
+    await fetchMarketData();
+  };
+
+  async function fetchMarketData() {
+    const { data: allUsers, error: allUsersError } = await db.from('users').select('pam_bucks');
+    if (!allUsersError && allUsers) {
+      currentValuation = allUsers.reduce((sum, user) => sum + (user.pam_bucks || 0), 0);
+      currentSharePrice = currentValuation / TOTAL_SHARES;
+      
+      document.getElementById('valuation-display').textContent = currentValuation.toLocaleString() + ' PB';
+      document.getElementById('share-price-display').textContent = currentSharePrice.toFixed(4);
+      
+      updateLocalMarketHistory();
+      renderDashboard();
+    }
+  }
+
+  function updateLocalMarketHistory() {
+    let history = JSON.parse(localStorage.getItem('pams_market_history') || '[]');
+    
+    // Add current snapshot
+    const now = new Date();
+    history.push({
+      time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      date: now.toLocaleDateString(),
+      price: currentSharePrice
+    });
+
+    // Keep history limited to last 50 opens so it doesn't get massive
+    if (history.length > 50) history = history.slice(history.length - 50);
+    
+    localStorage.setItem('pams_market_history', JSON.stringify(history));
+    drawChart(history);
+  }
+
+  function renderDashboard() {
+    document.getElementById('avail-pb-display').textContent = Math.floor(userPB).toLocaleString();
+    
+    // Calculate Equity and PNL
+    const equity = portfolio.shares * currentSharePrice;
+    const pnl = equity - portfolio.invested;
+    const pnlPercent = portfolio.invested > 0 ? (pnl / portfolio.invested) * 100 : 0;
+
+    document.getElementById('shares-display').textContent = portfolio.shares.toFixed(3);
+    document.getElementById('equity-display').textContent = equity.toFixed(2) + ' PB';
+
+    const pnlEl = document.getElementById('pnl-display');
+    const pctEl = document.getElementById('pnl-percent-display');
+    
+    pnlEl.textContent = (pnl >= 0 ? '+' : '') + pnl.toFixed(2) + ' PB';
+    pctEl.textContent = `(${pnl >= 0 ? '+' : ''}${pnlPercent.toFixed(2)}%)`;
+
+    pnlEl.className = 'pnl-display ' + (pnl > 0 ? 'pos' : pnl < 0 ? 'neg' : 'neutral');
+  }
+
+ async function executeTrade(type) {
+    let newPB = userPB;
+    
+    if (type === 'buy') {
+      const pbAmount = Math.floor(Number(document.getElementById('buy-input').value));
+      if (!pbAmount || pbAmount < 1) return alert('Enter a valid whole number of PB.');
+      if (pbAmount > userPB) return alert('Insufficient PB.');
+      
+      const sharesBought = pbAmount / currentSharePrice;
+      newPB -= pbAmount;
+      portfolio.shares += sharesBought;
+      portfolio.invested += pbAmount;
+      document.getElementById('buy-input').value = '';
+
+    } else if (type === 'sell') {
+      let sharesToSell = Number(document.getElementById('sell-input').value);
+      if (!sharesToSell || sharesToSell <= 0) return alert('Enter a valid amount of shares.');
+      
+      // Fix: Add a tiny tolerance for JavaScript float rounding errors
+      if (sharesToSell > portfolio.shares + 0.00001) return alert('You don\'t own that many shares.');
+      
+      // Fix: Cap the sell amount to the exact maximum you own to prevent decimal leftovers
+      sharesToSell = Math.min(sharesToSell, portfolio.shares);
+      
+      const pbGained = sharesToSell * currentSharePrice;
+      
+      // Reduce cost basis proportionally
+      const sellRatio = sharesToSell / portfolio.shares;
+      portfolio.invested -= (portfolio.invested * sellRatio);
+      portfolio.shares -= sharesToSell;
+      
+      // Fix: Supabase pam_bucks is an INTEGER. We must round the PB gained down to a whole number!
+      newPB += Math.floor(pbGained);
+      document.getElementById('sell-input').value = '';
+    }
+
+    // Clean up microscopic fractional shares if you sell everything
+    if (portfolio.shares < 0.00001) {
+      portfolio.shares = 0;
+      portfolio.invested = 0;
+    }
+
+    // Attempt DB Update - ensuring newPB is sent as a strict Integer
+    const { error } = await db.from('users').update({ pam_bucks: Math.floor(newPB) }).eq('id', currentUser.id);
+    
+    if (!error) {
+      userPB = Math.floor(newPB);
+      localStorage.setItem(`pam_portfolio_${currentUser.id}`, JSON.stringify(portfolio));
+      
+      // Refresh the global valuation
+      await fetchMarketData(); 
+    } else {
+      alert('Transaction failed due to server error: ' + error.message);
+    }
+  }
+
+  function drawChart(historyData) {
+    const ctx = document.getElementById('marketChart').getContext('2d');
+    
+    if (chartInstance) chartInstance.destroy();
+
+    const labels = historyData.map(d => d.time);
+    const dataPts = historyData.map(d => d.price);
+
+    Chart.defaults.color = '#7a6a40';
+    Chart.defaults.font.family = "'DM Mono', monospace";
+
+    chartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Price per Share (PB)',
+          data: dataPts,
+          borderColor: '#FFD700',
+          backgroundColor: 'rgba(255, 215, 0, 0.05)',
+          borderWidth: 2,
+          pointBackgroundColor: '#ff8c00',
+          pointBorderColor: '#12100a',
+          pointBorderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          fill: true,
+          tension: 0.2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#12100a',
+            titleColor: '#FFD700',
+            bodyColor: '#f0ead8',
+            borderColor: '#2a2310',
+            borderWidth: 1,
+            padding: 12,
+            callbacks: {
+              label: function(context) { return context.parsed.y.toFixed(4) + ' PB'; }
+            }
+          }
+        },
+        scales: {
+          y: {
+            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+            ticks: { callback: function(value) { return value.toFixed(4); } }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { maxTicksLimit: 8 }
+          }
+        }
+      }
+    });
+  }
+</script>
+</body>
+</html>
