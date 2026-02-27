@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connie's Custom Games</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Define the font and general body styles */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a1a2e; /* Deep purple background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+        }
+
+        /* game machine frame styling - Wider for 5 reels */
+        .game-machine {
+            width: 95%;
+            max-width: 650px; /* Increased max width for 5 reels */
+            background: #3c3c69; /* Dark blue/purple frame */
+            padding: 24px 15px; /* Adjust padding for width */
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9), 0 0 20px rgba(255, 204, 0, 0.6);
+            border: 8px solid #ffcc00; /* Yellow accent border */
+            text-align: center;
+        }
+
+        /* Custom styling for the game machine reels */
+        .game-reel {
+            /* 3 visible rows * 60px/row = 180px total height */
+            height: 180px; 
+            width: 60px; /* Symbol width */
+            overflow: hidden;
+            border-radius: 12px;
+            box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.7);
+            background: #0f0f1d;
+            border: 4px solid #4a4e69; 
+            margin: 0 4px; /* Tightened margin to fit 5 reels */
+            position: relative; 
+        }
+        
+        /* Container for the 5 reels */
+        .reels-container {
+            display: flex;
+            justify-content: center;
+            position: relative; 
+            padding: 15px 0;
+            border: 3px solid #5a5a8a;
+            border-radius: 16px;
+            background: #2a2a4e;
+        }
+
+        /* Symbol Container inside the reel (this moves during spin) */
+        .symbols {
+            position: absolute;
+            /* Initial offset to align the first symbol (index 0) with the top of the viewport (0px) */
+            top: 0px; 
+            transition: transform 1.5s cubic-bezier(0.1, 0.5, 0.1, 1); /* Smoother stop animation */
+        }
+
+        /* Individual symbol styling (512x512 images are scaled down to 60x60) */
+        .symbol {
+            height: 60px;
+            width: 60px;
+            background-size: 100% 100%;
+            background-position: center;
+            background-repeat: no-repeat;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        /* Image mapping (using the provided filenames) */
+        .c { background-image: url('assets/c.png'); }
+        .e { background-image: url('assets/e.png'); }
+        .k { background-image: url('assets/k.png'); }
+        .connie_1 { background-image: url('assets/connie_1.png'); }
+        .connie_2 { background-image: url('assets/connie_2.png'); }
+        .wild { background-image: url('assets/wild.png'); }
+        .connie_clock { background-image: url('assets/connie_clock.png'); }
+
+        /* --- Payline Highlight Styles (Targeting all 3 visible rows) --- */
+        .payline-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .payline-highlight {
+            position: absolute;
+            background-color: rgba(255, 255, 0, 0.3); 
+            border: 1px dashed #ffcc00;
+            transition: opacity 0.3s;
+            opacity: 0;
+            border-radius: 4px;
+        }
+
+        /* Row 0 (Top) */
+        .payline-h-0 { top: 0px; height: 60px; width: 100%; }
+        /* Row 1 (Center) */
+        .payline-h-1 { top: 60px; height: 60px; width: 100%; }
+        /* Row 2 (Bottom) */
+        .payline-h-2 { top: 120px; height: 60px; width: 100%; }
+        
+        /* Generic diagonal cell styling - used for all 5 reels */
+        .payline-diag-cell { 
+            position: absolute; 
+            height: 60px; 
+            width: 60px; 
+            opacity: 0; 
+            transition: opacity 0.3s;
+            border-radius: 4px;
+            background-color: rgba(255, 0, 255, 0.3); /* Distinct color for diagonals */
+            border: 1px dashed #ff00ff;
+        }
+
+        /* Button specific styling */
+        .spin-button {
+            background-color: #ffcc00;
+            color: #1a1a2e;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: bold;
+            box-shadow: 0 6px #e0b400;
+            transition: all 0.1s;
+        }
+        .spin-button:active {
+            box-shadow: 0 1px #e0b400;
+            transform: translateY(5px);
+        }
+        .spin-button:disabled {
+            background-color: #6b7280;
+            box-shadow: 0 4px #4b5563;
+            cursor: not-allowed;
+        }
+
+        /* Message Box */
+        #message-box {
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Responsive adjustments for mobile (smaller symbols) */
+        @media (max-width: 640px) {
+            .game-reel {
+                height: 150px; /* 3 * 50px */
+                width: 50px;
+                margin: 0 2px; /* Tighter margin */
+            }
+            .symbol {
+                height: 50px;
+                width: 50px;
+            }
+            .game-machine {
+                padding: 10px 5px;
+            }
+            /* Adjust payline highlights for smaller symbols/margins (50px reel + 4px margin = 54px width) */
+            .payline-h-0 { top: 0px; height: 50px; }
+            .payline-h-1 { top: 50px; height: 50px; }
+            .payline-h-2 { top: 100px; height: 50px; }
+            .payline-diag-cell { height: 50px; width: 50px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div style="display: none;">
+        <audio id="spin-sound" src="audio/spin.mp3" preload="auto"></audio>
+        <audio id="stop-reel-sound" src="audio/stop.mp3" preload="auto"></audio>
+        
+        <audio id="big-win-sound" src="audio/big_win.mp3" preload="auto"></audio>
+        <audio id="wild-sound" src="audio/wild.mp3" preload="auto"></audio>
+        <audio id="win1-sound" src="audio/win1.mp3" preload="auto"></audio>
+        <audio id="win2-sound" src="audio/win2.mp3" preload="auto"></audio>
+        <audio id="win3-sound" src="audio/win3.mp3" preload="auto"></audio>
+        <audio id="win4-sound" src="audio/win4.mp3" preload="auto"></audio>
+    </div>
+    <div class="game-machine">
+        <h1 class="text-3xl font-extrabold text-white mb-4">Connie's Game</h1>
+
+        <div class="flex justify-between items-center bg-gray-700 p-3 rounded-xl mb-4 text-white shadow-inner">
+            <div class="text-left">
+                <p class="text-sm font-semibold text-gray-300">BALANCE</p>
+                <p id="balance" class="text-2xl sm:text-3xl font-bold text-yellow-300">1000</p>
+            </div>
+            <div class="text-right">
+                <p class="text-sm font-semibold text-gray-300">LAST WIN</p>
+                <p id="last-win" class="text-2xl sm:text-3xl font-bold text-green-400">0</p>
+            </div>
+        </div>
+
+        <div class="reels-container relative">
+            
+            <div class="payline-overlay" id="payline-overlay">
+                <div id="h0" class="payline-highlight payline-h-0 opacity-0"></div>
+                <div id="h1" class="payline-highlight payline-h-1 opacity-0"></div>
+                <div id="h2" class="payline-highlight payline-h-2 opacity-0"></div>
+                </div>
+
+            <div id="reel1" class="game-reel"><div class="symbols" id="symbols1"></div></div>
+            <div id="reel2" class="game-reel"><div class="symbols" id="symbols2"></div></div>
+            <div id="reel3" class="game-reel"><div class="symbols" id="symbols3"></div></div>
+            <div id="reel4" class="game-reel"><div class="symbols" id="symbols4"></div></div>
+            <div id="reel5" class="game-reel"><div class="symbols" id="symbols5"></div></div>
+
+        </div>
+
+        <div id="message-box" class="mt-4 p-2 bg-gray-800 text-white rounded-lg font-semibold text-sm shadow-md">
+            Welcome! Press 'SPACE' or Spin to play!
+        </div>
+
+        <div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+            
+            <div class="flex items-center space-x-2 bg-gray-700 p-2 rounded-lg w-full sm:w-auto">
+                <label for="bet-input" class="text-white text-sm font-medium">BET:</label>
+                <input type="number" id="bet-input" value="10" min="1" max="100" class="w-20 p-1 rounded-md text-center bg-gray-900 text-yellow-300 font-bold border border-yellow-500 focus:outline-none focus:ring-2 focus:ring-yellow-500">
+            </div>
+
+            <button id="spin-button" class="spin-button w-full sm:w-auto" onclick="spin()">
+                <span class="text-xl">🎰 SPIN</span> (Spacebar)
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Game Setup and Constants ---
+
+        // Virtual currency variables
+        let balance = 1000;
+        let isSpinning = false;
+        
+        // Grid dimensions
+        const REEL_COUNT = 5; // Columns
+        const ROW_COUNT = 3;  // Visible Rows
+
+        // Symbol dimensions must match CSS
+        const SYMBOL_HEIGHT = window.innerWidth <= 640 ? 50 : 60; 
+        const REEL_WIDTH = window.innerWidth <= 640 ? 54 : 68; // 50/60px width + 4/8px margin
+        
+        const REEL_SPIN_DURATION = 1500; // Time in ms for the reels to visibly spin
+        const STOP_DELAY_PER_REEL = 300; // Delay between reels stopping
+
+        // Paylines are defined by the visible row index (0 to 2) and reel index (0 to 4)
+        // (r, c) -> Row Index (0-2), Column Index (0-4)
+        const PAYLINES = [
+            // H0: Horizontal Top Row
+            [{r: 0, c: 0}, {r: 0, c: 1}, {r: 0, c: 2}, {r: 0, c: 3}, {r: 0, c: 4}],
+            // H1: Horizontal Center Row
+            [{r: 1, c: 0}, {r: 1, c: 1}, {r: 1, c: 2}, {r: 1, c: 3}, {r: 1, c: 4}],
+            // H2: Horizontal Bottom Row
+            [{r: 2, c: 0}, {r: 2, c: 1}, {r: 2, c: 2}, {r: 2, c: 3}, {r: 2, c: 4}],
+            // D3: Diagonal Down-Up-Down-Up-Down
+            [{r: 0, c: 0}, {r: 1, c: 1}, {r: 2, c: 2}, {r: 1, c: 3}, {r: 0, c: 4}],
+            // D4: Diagonal Up-Down-Up-Down-Up
+            [{r: 2, c: 0}, {r: 1, c: 1}, {r: 0, c: 2}, {r: 1, c: 3}, {r: 2, c: 4}],
+        ];
+        
+        // Corresponds to the PAYLINES array for visual highlighting
+        const PAYLINE_IDS = ['h0', 'h1', 'h2', 'd3', 'd4'];
+
+
+        // Define the symbols, their weights, and payouts for 3x, 4x, and 5x matches
+        const SYMBOLS = [
+            // Payouts: {3x, 4x, 5x} * BET
+            { id: 'c.png', class: 'c', weight: 12, payouts: {3: 1, 4: 2, 5: 5} },
+            { id: 'e.png', class: 'e', weight: 12, payouts: {3: 1, 4: 2, 5: 5} },
+            { id: 'k.png', class: 'k', weight: 12, payouts: {3: 1, 4: 2, 5: 5} },
+            { id: 'connie_1.png', class: 'connie_1', weight: 8, payouts: {3: 2, 4: 5, 5: 10} },
+            { id: 'connie_2.png', class: 'connie_2', weight: 8, payouts: {3: 2, 4: 5, 5: 10} },
+            { id: 'wild.png', class: 'wild', weight: 4, payouts: {3: 0, 4: 0, 5: 0}, isWild: true }, // Wild gives no direct payout, only multiplies
+            { id: 'connie_clock.png', class: 'connie_clock', weight: 2, payouts: {3: 5, 4: 10, 5: 50}, isBonus: true } 
+        ];
+        
+        // Symbols for weighted random selection
+        let WEIGHTED_SYMBOLS = [];
+        SYMBOLS.forEach(s => {
+            for (let i = 0; i < s.weight; i++) {
+                WEIGHTED_SYMBOLS.push(s);
+            }
+        });
+
+        // Elements
+        const balanceEl = document.getElementById('balance');
+        const lastWinEl = document.getElementById('last-win');
+        const betInput = document.getElementById('bet-input');
+        const spinButton = document.getElementById('spin-button');
+        const messageBox = document.getElementById('message-box');
+        const paylineOverlay = document.getElementById('payline-overlay');
+        const reels = Array.from({ length: REEL_COUNT }, (_, i) => document.getElementById(`symbols${i + 1}`));
+        
+        // Storage for dynamically created diagonal highlight elements
+        const diagonalHighlightEls = {};
+
+        // ADDED: AUDIO ELEMENTS REFERENCES (UPDATED)
+        const spinSound = document.getElementById('spin-sound');
+        const stopReelSound = document.getElementById('stop-reel-sound'); // Changed ID to stop-reel-sound
+        
+        // New Sounds for Wins/Bonus/Wild
+        const bigWinSound = document.getElementById('big-win-sound');
+        const wildSound = document.getElementById('wild-sound');
+        const winSounds = [
+            document.getElementById('win1-sound'),
+            document.getElementById('win2-sound'),
+            document.getElementById('win3-sound'),
+            document.getElementById('win4-sound')
+        ];
+
+
+        // ADDED: AUDIO UTILITY FUNCTIONS
+        function playSound(audioElement) {
+            if (!audioElement) return;
+            // Stop and reset the sound to ensure it plays every time, even if still playing
+            audioElement.currentTime = 0;
+            // Play with a catch for browser policy issues (like autoplay restrictions)
+            audioElement.play().catch(e => console.warn("Audio playback failed (usually due to browser autoplay policy). Click/tap once to enable audio."));
+        }
+
+        function stopSoundUtil(audioElement) {
+            if (!audioElement) return;
+            audioElement.pause();
+            audioElement.currentTime = 0;
+        }
+
+        // --- Utility Functions ---
+
+        // Helper to randomly select a symbol based on weights
+        function getRandomSymbol() {
+            const index = Math.floor(Math.random() * WEIGHTED_SYMBOLS.length);
+            return WEIGHTED_SYMBOLS[index];
+        }
+
+        // Creates a full reel strip with a guaranteed 3-symbol result at the stop position
+        function setupReelStrip(symbolsEl, finalResultSymbols) {
+            symbolsEl.innerHTML = '';
+            
+            // 1. Create a spin buffer (many random symbols)
+            const spinBufferLength = 20; 
+            for (let i = 0; i < spinBufferLength; i++) {
+                const symbolData = getRandomSymbol();
+                symbolsEl.appendChild(createSymbolElement(symbolData));
+            }
+
+            // 2. Append the 3-symbol final result grid (visible at the end)
+            finalResultSymbols.forEach(symbolData => {
+                 symbolsEl.appendChild(createSymbolElement(symbolData));
+            });
+            
+            // 3. Add an extra buffer (3 symbols) at the end to allow smooth stop with bounce
+            for (let i = 0; i < 3; i++) {
+                 const symbolData = getRandomSymbol();
+                 symbolsEl.appendChild(createSymbolElement(symbolData));
+            }
+        }
+        
+        function createSymbolElement(symbolData) {
+            const symbolDiv = document.createElement('div');
+            symbolDiv.classList.add('symbol', symbolData.class);
+            symbolDiv.dataset.id = symbolData.id;
+            return symbolDiv;
+        }
+        
+        // Dynamically creates the diagonal highlight elements since they are positioned individually
+        function setupDiagonalHighlights() {
+            PAYLINES.slice(3).forEach((line, indexOffset) => {
+                const lineIndex = indexOffset + 3; // D3, D4 indices
+                line.forEach(pos => {
+                    const id = `d${lineIndex}-${pos.r}-${pos.c}`;
+                    diagonalHighlightEls[id] = document.createElement('div');
+                    diagonalHighlightEls[id].id = id;
+                    diagonalHighlightEls[id].classList.add('payline-highlight', 'payline-diag-cell');
+                    
+                    // Calculate position based on the grid (row * height, col * reel_width)
+                    const top = pos.r * SYMBOL_HEIGHT;
+                    const left = pos.c * REEL_WIDTH; 
+                    
+                    diagonalHighlightEls[id].style.top = `${top}px`;
+                    diagonalHighlightEls[id].style.left = `${left}px`;
+                    
+                    paylineOverlay.appendChild(diagonalHighlightEls[id]);
+                });
+            });
+        }
+
+
+        // --- Core Game Functions ---
+
+        function updateUI() {
+            balanceEl.textContent = balance.toFixed(0);
+            const bet = parseInt(betInput.value) || 0;
+            spinButton.disabled = isSpinning || balance < bet || bet <= 0;
+            if (balance < bet) {
+                 messageBox.textContent = "Insufficient funds! Please lower your bet.";
+            }
+        }
+
+        function displayMessage(text, isError = false) {
+            messageBox.textContent = text;
+            messageBox.classList.remove('text-red-400', 'text-green-400', 'text-yellow-400', 'text-gray-300');
+            if (isError) {
+                messageBox.classList.add('text-red-400');
+            } else if (text.includes('WINNER') || text.includes('BONUS') || text.includes('JACKPOT')) {
+                messageBox.classList.add('text-green-400');
+            } else {
+                messageBox.classList.add('text-yellow-400');
+            }
+        }
+
+        function clearHighlights() {
+            document.querySelectorAll('.payline-highlight').forEach(el => el.style.opacity = '0');
+        }
+
+        // Generates a 3-symbol result for a single reel based on weights
+        function generateReelResult() {
+             return Array(ROW_COUNT).fill(0).map(() => getRandomSymbol());
+        }
+
+        // The main spin function
+        async function spin() {
+            if (isSpinning) return;
+            clearHighlights();
+            let bet = parseInt(betInput.value);
+
+            if (bet <= 0 || balance < bet) {
+                updateUI();
+                return;
+            }
+
+            // Start of Spin
+            isSpinning = true;
+            balance -= bet;
+            updateUI();
+            displayMessage(`Spinning for ${bet} coins...`);
+            lastWinEl.textContent = '0';
+            
+            // ADDED: Play spin sound and loop it
+            spinSound.loop = true; 
+            playSound(spinSound);
+            
+            // 1. Generate the final 3x5 grid result (5 reels, 3 rows each)
+            const finalResultGrid = Array.from({ length: REEL_COUNT }, () => generateReelResult());
+
+            // 2. Prepare and spin each reel
+            const spinPromises = reels.map((reel, index) => {
+                const finalResultSymbols = finalResultGrid[index];
+                setupReelStrip(reel, finalResultSymbols);
+                
+                // We want the 3 result symbols to land perfectly in the 3-row viewport.
+                // The result symbols start at index 20. We need to move the strip up 
+                // so the symbol at index 20 aligns with the top of the viewport (0px).
+                
+                const finalStopIndex = 20; // The index of the first symbol of our 3-symbol result group
+                const finalY = finalStopIndex * SYMBOL_HEIGHT;
+
+                // Reset transition and position immediately
+                reel.style.transition = 'none';
+                reel.style.transform = `translateY(0px)`;
+                
+                return new Promise(resolve => {
+                    setTimeout(() => {
+                        // Apply the spin animation
+                        reel.style.transition = `transform ${REEL_SPIN_DURATION}ms cubic-bezier(0.1, 0.5, 0.1, 1)`;
+                        // The container must move UP (negative Y) until the result starts at the top (0)
+                        reel.style.transform = `translateY(-${finalY}px)`; 
+                        
+                        setTimeout(() => {
+                            // ADDED: Play stop sound when reel transition ends (UPDATED)
+                            playSound(stopReelSound); 
+                            resolve(finalResultSymbols);
+                        }, REEL_SPIN_DURATION + 100); // Wait for transition to complete
+                    }, index * STOP_DELAY_PER_REEL); // Staggered start/stop
+                });
+            });
+            
+            // Wait for all reels to stop
+            await Promise.all(spinPromises);
+            
+            // ADDED: Stop spin sound once all reels have stopped
+            stopSoundUtil(spinSound);
+            
+            // Stop of Spin
+            isSpinning = false;
+            const totalWin = checkWins(finalResultGrid, bet); // Check wins first
+            
+            // Final Message (UPDATED LOGIC)
+            if (totalWin > 0) {
+                balance += totalWin;
+                lastWinEl.textContent = totalWin.toFixed(0);
+                
+                // Audio is now handled within checkWins (for big_win and wild)
+                // We'll play a generic win sound here if no specific sound was triggered by checkWins
+                if (!messageBox.textContent.includes('BONUS') && !messageBox.textContent.includes('WILD')) {
+                    // This is a normal or small win
+                    const randomWinSound = winSounds[Math.floor(Math.random() * winSounds.length)];
+                    playSound(randomWinSound);
+                }
+                
+                displayMessage(messageBox.textContent, false); // Use the message set by checkWins
+                
+            } else if (!messageBox.textContent.includes('BONUS')) {
+                displayMessage("No win this round. Try again!", false);
+                // ADDED: Play a random win sound for a no-win spin (as requested for win1-win4 usage)
+                const randomNoWinSound = winSounds[Math.floor(Math.random() * winSounds.length)];
+                playSound(randomNoWinSound); 
+            }
+            
+            updateUI();
+        }
+
+        // Checks all paylines for 3, 4, or 5-of-a-kind wins (left-to-right)
+        function checkWins(finalResultGrid, bet) {
+            let totalWin = 0;
+            let wildUsed = false;
+            let bonusTriggered = false;
+            let linesWon = [];
+            
+            // finalResultGrid is [reel0:[sym0..2], reel1:[sym0..2], reel2:[sym0..2], ...]
+
+            PAYLINES.forEach((line, lineIndex) => {
+                const symbolsInLine = line.map(p => finalResultGrid[p.c][p.r]);
+                
+                // Payouts for 5-reel games typically start from the leftmost reel (index 0)
+                let currentMatchCount = 0;
+                let winningSymbol = null;
+                let lineWin = 0;
+                
+                // Iterate through the 5 symbols in the line
+                for (let i = 0; i < REEL_COUNT; i++) {
+                    const currentSymbol = symbolsInLine[i];
+
+                    if (i === 0) {
+                        // Start a new match sequence
+                        winningSymbol = currentSymbol;
+                        currentMatchCount = 1;
+                    } else {
+                        // Check if the current symbol matches the established winning symbol (Wild substitutes)
+                        const matches = winningSymbol.isWild 
+                            ? (currentSymbol.isWild || symbolsInLine.slice(0, i).some(s => !s.isWild) && currentSymbol.id === symbolsInLine.find(s => !s.isWild)?.id)
+                            : (currentSymbol.isWild || currentSymbol.id === winningSymbol.id);
+
+                        if (matches) {
+                            currentMatchCount++;
+                        } else {
+                            // Match broken. Check if we won on the previous sequence.
+                            break; 
+                        }
+                    }
+                }
+
+                // If the initial winningSymbol was a Wild, redefine it as the first non-Wild symbol matched
+                // This correctly ensures the payout is calculated based on the paying symbol.
+                if (winningSymbol && winningSymbol.isWild) { 
+                    const firstNonWild = symbolsInLine.slice(0, currentMatchCount).find(s => !s.isWild);
+                    if (firstNonWild) {
+                        winningSymbol = firstNonWild;
+                    } else if (currentMatchCount < 3) {
+                         // A line of 1 or 2 wilds doesn't count for any payout
+                         winningSymbol = null; 
+                    }
+                }
+                
+                // Calculate Payout based on match count (min 3)
+                if (winningSymbol && currentMatchCount >= 3 && !winningSymbol.isWild) { 
+                    const payout = winningSymbol.payouts[currentMatchCount];
+                    let winAmount = payout * bet;
+                    
+                    // Wild Multiplier Check (Assume a 2x multiplier for Wilds in winning combination)
+                    const lineWilds = symbolsInLine.slice(0, currentMatchCount).filter(s => s.isWild).length;
+                    if (lineWilds > 0) {
+                        winAmount *= Math.pow(2, lineWilds);
+                        wildUsed = true; // Flag for wild sound
+                    }
+                    
+                    lineWin = winAmount;
+                }
+
+
+                if (lineWin > 0) {
+                    totalWin += lineWin;
+                    linesWon.push({ index: lineIndex, count: currentMatchCount });
+                    
+                    if (winningSymbol.isBonus && currentMatchCount === 5) {
+                        bonusTriggered = true;
+                        displayMessage(`**BONUS + JACKPOT!** Five ${winningSymbol.class} on a line!`, false);
+                    } else if (currentMatchCount === 5) {
+                        displayMessage('FIVE-OF-A-KIND JACKPOT!', false);
+                    }
+                }
+            });
+
+            // Post-win actions
+            if (linesWon.length > 0) {
+                // Highlight winning lines
+                linesWon.forEach(line => {
+                    const lineId = PAYLINE_IDS[line.index];
+                    
+                    if (lineId.startsWith('h')) {
+                        // Horizontal line
+                        const el = document.getElementById(lineId);
+                        if (el) el.style.opacity = '1';
+                    } else {
+                        // Diagonal lines (D3, D4) - highlight individual cells for the winning segment
+                        PAYLINES[line.index].slice(0, line.count).forEach(pos => {
+                             const id = `d${lineId.slice(1)}-${pos.r}-${pos.c}`;
+                             const el = diagonalHighlightEls[id];
+                             if (el) el.style.opacity = '1';
+                        });
+                    }
+                });
+                
+                // ADDED: Play Wild sound
+                if (wildUsed && !bonusTriggered) {
+                    playSound(wildSound);
+                    displayMessage(messageBox.textContent.includes('JACKPOT') ? messageBox.textContent : "WILD HIT! Multiplier applied!", false);
+                }
+            }
+            
+            // Handle Bonus trigger without full 5x line (3 or more scatter)
+            const bonusSymbols = finalResultGrid.flat().filter(s => s.isBonus);
+            if (bonusSymbols.length >= 3 && !bonusTriggered) {
+                bonusTriggered = true;
+                displayMessage(`BONUS TRIGGERED! Three or more Connie Clocks appeared!`, false);
+                playSound(bigWinSound); // ADDED: Play big_win.mp3 for bonus
+            }
+            
+            return totalWin;
+        }
+
+        // Initial setup and event listeners
+        window.onload = function() {
+            // Setup required diagonal highlights (since they are individual cells)
+            setupDiagonalHighlights();
+
+            // Populate the reels with random symbols for initial display
+            reels.forEach(r => setupReelStrip(r, generateReelResult()));
+            updateUI();
+
+            // Event listener for the spacebar
+            document.addEventListener('keydown', (e) => {
+                if (e.code === 'Space' && !isSpinning && !spinButton.disabled) {
+                    e.preventDefault(); // Prevent scrolling
+                    spin();
+                }
+            });
+
+            // Ensure bet is always a valid number on change
+            betInput.addEventListener('change', () => {
+                let bet = parseInt(betInput.value);
+                bet = Math.max(1, Math.min(100, isNaN(bet) ? 10 : bet));
+                betInput.value = bet;
+                updateUI();
+            });
+
+            // Set initial message
+            displayMessage("Welcome! Press 'SPACE' or Spin to play!");
+        }
+
+    </script>
+
+</body>
+</html>

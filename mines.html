@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mines — Pam's Casino</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>
+  :root {
+    --bg: #0a0900;
+    --surface: #12100a;
+    --surface2: #1a1810;
+    --border: #2a2310;
+    --accent: #FFD700;
+    --accent2: #ff8c00;
+    --text: #f0ead8;
+    --muted: #7a6a40;
+    --success: #4ade80;
+    --error: #f87171;
+    --tile: #181610;
+    --tile-hover: #222018;
+    --tile-border: #2e2a18;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 50% 0%, rgba(255,215,0,0.06) 0%, transparent 55%),
+      radial-gradient(ellipse 40% 60% at 90% 80%, rgba(255,60,0,0.03) 0%, transparent 50%);
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 24px;
+    background: rgba(10,9,0,0.9);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+    z-index: 10; flex-shrink: 0;
+    position: sticky; top: 0;
+  }
+
+  .back-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: transparent; border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 14px;
+    color: var(--muted); font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem; cursor: pointer; transition: all 0.2s;
+    text-decoration: none;
+  }
+  .back-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .header-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 900; font-size: 1.2rem;
+    letter-spacing: 0.15em; text-transform: uppercase;
+  }
+  .header-title span {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .pb-display {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255,215,0,0.07);
+    border: 1px solid rgba(255,215,0,0.2);
+    border-radius: 8px; padding: 7px 14px;
+  }
+  .pb-display .pb-label { font-size: 0.72rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+  .pb-display .pb-val { font-family: 'Syne', sans-serif; font-weight: 800; color: var(--accent); font-size: 1rem; }
+
+  /* ── MAIN ── */
+  .game-wrap {
+    display: flex; flex: 1;
+    position: relative; z-index: 1;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 240px; flex-shrink: 0;
+    background: rgba(18,16,10,0.98);
+    border-right: 1px solid var(--border);
+    padding: 20px 16px;
+    display: flex; flex-direction: column; gap: 14px;
+    overflow-y: auto;
+  }
+
+  .sidebar-section {
+    background: rgba(255,215,0,0.03);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px;
+  }
+
+  .sidebar-label {
+    font-size: 0.68rem; font-family: 'Syne', sans-serif;
+    font-weight: 700; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  /* Bet input */
+  .bet-row { display: flex; gap: 6px; margin-bottom: 8px; }
+  .bet-input-wrap {
+    flex: 1; position: relative;
+  }
+  .bet-input {
+    width: 100%; padding: 10px 12px 10px 12px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 0.95rem;
+    outline: none; transition: border-color 0.2s; text-align: left;
+  }
+  .bet-input:focus { border-color: var(--accent); }
+
+  .half-double {
+    display: flex; gap: 6px;
+  }
+  .adj-btn {
+    flex: 1; padding: 8px 4px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--muted);
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 0.78rem; cursor: pointer; transition: all 0.15s;
+    text-align: center;
+  }
+  .adj-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Mine count */
+  .mines-options { display: flex; gap: 6px; }
+  .mine-opt {
+    flex: 1; padding: 10px 4px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--muted);
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 0.9rem; cursor: pointer; text-align: center;
+    transition: all 0.15s;
+  }
+  .mine-opt:hover { border-color: var(--accent); color: var(--accent); }
+  .mine-opt.active {
+    background: rgba(255,215,0,0.1); border-color: var(--accent); color: var(--accent);
+  }
+
+  /* Multiplier display */
+  .mult-display {
+    text-align: center; padding: 10px 0 4px;
+  }
+  .mult-label { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.12em; }
+  .mult-val {
+    font-family: 'Syne', sans-serif; font-weight: 900;
+    font-size: 1.8rem;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    transition: all 0.3s;
+  }
+  .profit-val {
+    font-family: 'DM Mono', monospace; font-size: 0.85rem;
+    color: var(--success); margin-top: 2px;
+  }
+
+  /* Bet/Cashout button */
+  .action-btn {
+    width: 100%; padding: 14px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; border-radius: 10px;
+    color: #000; font-family: 'Syne', sans-serif;
+    font-weight: 900; font-size: 0.9rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .action-btn:hover { opacity: 0.88; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(255,215,0,0.25); }
+  .action-btn:active { transform: translateY(0); }
+  .action-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; box-shadow: none; }
+  .action-btn.cashout {
+    background: linear-gradient(135deg, #4ade80, #22c55e);
+    animation: pulse-green 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse-green {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(74,222,128,0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(74,222,128,0); }
+  }
+  .action-btn.cashout-loss {
+    background: linear-gradient(135deg, #f97316, #dc2626);
+    animation: pulse-red 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse-red {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+  }
+
+  /* Stats */
+  .stat-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 4px 0; font-size: 0.8rem;
+  }
+  .stat-key { color: var(--muted); }
+  .stat-v { font-family: 'DM Mono', monospace; }
+
+  /* ── GRID AREA ── */
+  .grid-area {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    padding: 32px;
+    position: relative;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    width: min(520px, 100%);
+    aspect-ratio: 1;
+  }
+
+  .tile {
+    background: var(--tile);
+    border: 1px solid var(--tile-border);
+    border-radius: 10px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center;
+    aspect-ratio: 1;
+  }
+
+  .tile::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .tile:not(.revealed):not(.disabled):hover {
+    background: var(--tile-hover);
+    border-color: rgba(255,215,0,0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+  }
+
+  .tile.disabled { cursor: not-allowed; }
+
+  .tile img {
+    width: 55%;
+    height: 55%;
+    object-fit: contain;
+    opacity: 0;
+    transform: scale(0.4);
+    position: relative; z-index: 1;
+    pointer-events: none;
+  }
+
+  .tile.gem {
+    background: rgba(16, 40, 20, 0.9);
+    border-color: rgba(74,222,128,0.4);
+    box-shadow: 0 0 20px rgba(74,222,128,0.15) inset, 0 4px 12px rgba(0,0,0,0.4);
+  }
+
+  .tile.bomb-tile {
+    background: rgba(40, 10, 10, 0.95);
+    border-color: rgba(248,113,113,0.5);
+    box-shadow: 0 0 24px rgba(248,113,113,0.2) inset;
+    animation: bomb-flash 0.4s ease;
+  }
+
+  .tile.bomb-reveal {
+    background: rgba(30, 8, 8, 0.8);
+    border-color: rgba(248,113,113,0.25);
+    cursor: default;
+  }
+
+  @keyframes bomb-flash {
+    0% { transform: scale(1.15); box-shadow: 0 0 40px rgba(248,113,113,0.6); }
+    100% { transform: scale(1); }
+  }
+
+  /* Result overlay */
+  .result-overlay {
+    position: absolute; inset: 0; z-index: 20;
+    display: none; align-items: center; justify-content: center;
+    flex-direction: column; gap: 12px;
+    background: rgba(10,9,0,0.7); backdrop-filter: blur(2px);
+    border-radius: 12px;
+  }
+  .result-overlay.show { display: flex; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .result-text {
+    font-family: 'Syne', sans-serif; font-weight: 900;
+    font-size: 2.2rem; text-align: center;
+    text-shadow: 0 0 40px currentColor;
+  }
+  .result-sub {
+    font-family: 'DM Mono', monospace; font-size: 1rem;
+    color: var(--muted); text-align: center;
+  }
+
+  /* Login overlay */
+  .login-prompt {
+    position: absolute; inset: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(10,9,0,0.85); backdrop-filter: blur(4px);
+  }
+  .login-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 32px; text-align: center; max-width: 320px;
+  }
+  .login-box h2 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.3rem; margin-bottom: 8px; }
+  .login-box p { color: var(--muted); font-size: 0.88rem; margin-bottom: 20px; line-height: 1.6; }
+  .login-link {
+    display: inline-block; padding: 12px 28px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px; color: #000;
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 0.85rem; letter-spacing: 0.1em;
+    text-transform: uppercase; text-decoration: none; transition: opacity 0.2s;
+  }
+  .login-link:hover { opacity: 0.85; }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <a class="back-btn" href="index.html">← Back</a>
+  <div class="header-title">💣 <span>Mines</span></div>
+  <div class="pb-display">
+    <span class="pb-label">💰</span>
+    <span class="pb-val" id="pbDisplay">—</span>
+  </div>
+</div>
+
+<div class="game-wrap">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- Bet Amount -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Bet Amount (PB)</div>
+      <div class="bet-row">
+        <div class="bet-input-wrap">
+          <input class="bet-input" id="betInput" type="number" value="100" min="1" placeholder="Amount…">
+        </div>
+      </div>
+      <div class="half-double">
+        <button class="adj-btn" onclick="adjustBet(0.5)">½</button>
+        <button class="adj-btn" onclick="adjustBet(2)">2×</button>
+        <button class="adj-btn" onclick="setBetMax()">Max</button>
+      </div>
+    </div>
+
+    <!-- Mine Count -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Mines</div>
+      <div class="mines-options">
+        <div class="mine-opt active" onclick="setMines(3)" id="m3">3</div>
+        <div class="mine-opt" onclick="setMines(4)" id="m4">4</div>
+        <div class="mine-opt" onclick="setMines(5)" id="m5">5</div>
+        <div class="mine-opt" onclick="setMines(6)" id="m6">6</div>
+        <div class="mine-opt" onclick="setMines(7)" id="m7">7</div>
+      </div>
+    </div>
+
+    <!-- Multiplier -->
+    <div class="sidebar-section">
+      <div class="mult-display">
+        <div class="mult-label">Current Multiplier</div>
+        <div class="mult-val" id="multVal">1.00×</div>
+        <div class="profit-val" id="profitVal">+0 PB profit</div>
+      </div>
+    </div>
+
+    <!-- Action Button -->
+    <button class="action-btn" id="actionBtn" onclick="handleAction()">▶ Place Bet</button>
+
+    <!-- Session Stats -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Session</div>
+      <div class="stat-row">
+        <span class="stat-key">Games</span>
+        <span class="stat-v" id="statGames">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-key">Net P&L</span>
+        <span class="stat-v" id="statPnl" style="color:var(--muted)">0 PB</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-key">Best Mult</span>
+        <span class="stat-v" id="statBest">—</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- GRID AREA -->
+  <div class="grid-area">
+    <div style="position:relative; width:min(520px,100%); aspect-ratio:1;">
+
+      <div class="grid" id="grid"></div>
+
+      <!-- Result overlay sits over the grid -->
+      <div class="result-overlay" id="resultOverlay">
+        <div class="result-text" id="resultText"></div>
+        <div class="result-sub" id="resultSub"></div>
+      </div>
+
+      <!-- Login overlay -->
+      <div class="login-prompt" id="loginPrompt" style="display:none;">
+        <div class="login-box">
+          <h2>Sign in to play</h2>
+          <p>You need a Pam's Casino account to bet Pam Bucks on Mines.</p>
+          <a class="login-link" href="index.html">Sign In →</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Supabase ──────────────────────────────────────────────────
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let userPB = 0;
+
+// ── Game State ────────────────────────────────────────────────
+let mineCount = 3;
+let currentBet = 100;
+let gameActive = false;
+let minePositions = new Set();
+let revealedGems = 0;
+let currentMult = 1.0;
+
+// Session
+let sessionGames = 0;
+let sessionPnl = 0;
+let bestMult = 0;
+
+// ── Multiplier Table ──────────────────────────────────────────
+// House edge is steep early — you need to go deep to profit.
+// Multiplier starts well below 1.0, climbs sharply with each safe reveal.
+function calcMult(mines, gems) {
+  if (gems === 0) return 1.0;
+  const totalTiles = 25;
+  const safeTiles = totalTiles - mines;
+
+  // True probability of safely picking `gems` tiles in a row
+  let prob = 1;
+  for (let i = 0; i < gems; i++) {
+    prob *= (safeTiles - i) / (totalTiles - i);
+  }
+
+  // House edge scales with mines: more mines = slightly better RTP to reward risk
+  // But always punishing early — you need depth to overcome the house cut
+  // 3 mines: ~68% RTP, 4 mines: ~72% RTP, 5 mines: ~76% RTP, 6: ~80%, 7: ~84%
+  const rtp = 0.68 + (mines - 3) * 0.04;
+  const raw = rtp / prob;
+
+  // Cap display at 2 decimals, floor at 0.1× (never show 0)
+  return Math.max(0.1, parseFloat(raw.toFixed(2)));
+}
+
+// How many gems needed before cashout is profitable (mult > 1.0)
+function gemsToProfit(mines) {
+  for (let g = 1; g <= 25 - mines; g++) {
+    if (calcMult(mines, g) > 1.0) return g;
+  }
+  return 25 - mines;
+}
+
+// Bomb = lose entire bet. No refund. Should have cashed out.
+function calcBombRefund(mines, gems, bet) {
+  return 0;
+}
+
+// ── Build Grid ────────────────────────────────────────────────
+function buildGrid() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < 25; i++) {
+    const tile = document.createElement('div');
+    tile.className = 'tile';
+    tile.dataset.index = i;
+    tile.innerHTML = '<img src="" alt="" draggable="false">';
+    tile.addEventListener('click', () => onTileClick(i));
+    grid.appendChild(tile);
+  }
+}
+
+function getTile(i) {
+  return document.querySelector(`.tile[data-index="${i}"]`);
+}
+
+// ── Start Game ────────────────────────────────────────────────
+function startGame() {
+  if (!currentUser) return;
+  const bet = parseInt(document.getElementById('betInput').value);
+  if (isNaN(bet) || bet < 1) return flash('Enter a valid bet', 'error');
+  if (bet > userPB) return flash('Not enough PB!', 'error');
+
+  currentBet = bet;
+  userPB -= currentBet;
+  updatePBDisplay();
+
+  // Place mines randomly
+  minePositions = new Set();
+  while (minePositions.size < mineCount) {
+    minePositions.add(Math.floor(Math.random() * 25));
+  }
+
+  revealedGems = 0;
+  currentMult = 1.0;
+  gameActive = true;
+
+  // Reset grid
+  document.querySelectorAll('.tile').forEach(t => {
+    t.className = 'tile';
+    const img = t.querySelector('img');
+    img.src = '';
+    img.onload = null;
+    img.style.transition = 'none';
+    img.style.opacity = '0';
+    img.style.transform = 'scale(0.4)';
+  });
+
+  // Hide result overlay
+  document.getElementById('resultOverlay').classList.remove('show');
+
+  updateMultDisplay();
+  updateActionBtn();
+  lockControls(true);
+}
+
+// ── Reveal Image Helper ───────────────────────────────────────
+function revealImg(tile, src, delay = 0) {
+  const img = tile.querySelector('img');
+  img.style.transition = 'none';
+  img.style.opacity = '0';
+  img.style.transform = 'scale(0.4)';
+  img.src = src;
+  img.onload = () => {
+    setTimeout(() => {
+      img.style.transition = 'opacity 0.22s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      img.style.opacity = '1';
+      img.style.transform = 'scale(1)';
+      tile.classList.add('revealed');
+    }, delay);
+  };
+  // Fallback if already cached
+  if (img.complete && img.naturalWidth > 0) {
+    img.onload = null;
+    setTimeout(() => {
+      img.style.transition = 'opacity 0.22s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      img.style.opacity = '1';
+      img.style.transform = 'scale(1)';
+      tile.classList.add('revealed');
+    }, delay);
+  }
+}
+
+// ── Tile Click ────────────────────────────────────────────────
+function onTileClick(index) {
+  if (!gameActive) return;
+  const tile = getTile(index);
+  if (tile.classList.contains('revealed') || tile.classList.contains('gem') || tile.classList.contains('bomb-tile')) return;
+
+  if (minePositions.has(index)) {
+    // BOOM
+    tile.classList.add('bomb-tile');
+    revealImg(tile, 'assets/bomb.png');
+    playBoom();
+    endGame(false);
+  } else {
+    // GEM
+    tile.classList.add('gem');
+    revealImg(tile, 'assets/emerald.png');
+    playGem();
+    revealedGems++;
+    currentMult = calcMult(mineCount, revealedGems);
+    updateMultDisplay();
+    updateActionBtn();
+
+    // Auto-cashout if all gems revealed
+    const maxGems = 25 - mineCount;
+    if (revealedGems >= maxGems) {
+      endGame(true);
+    }
+  }
+}
+
+// ── End Game ──────────────────────────────────────────────────
+async function endGame(win) {
+  gameActive = false;
+
+  // Reveal all mines
+  minePositions.forEach(i => {
+    const t = getTile(i);
+    if (!t.classList.contains('bomb-tile')) {
+      t.classList.add('bomb-reveal');
+      revealImg(t, 'assets/bomb.png', 80);
+    }
+    t.classList.add('revealed');
+  });
+
+  lockControls(false);
+  updateActionBtn();
+
+  sessionGames++;
+
+  if (win && revealedGems > 0) {
+    const winAmt = Math.round(currentBet * currentMult);
+    const net = winAmt - currentBet;
+    userPB += winAmt;
+    sessionPnl += net;
+    if (currentMult > bestMult) bestMult = currentMult;
+    updatePBDisplay();
+    showResult(`+${winAmt.toLocaleString()} PB`, `${currentMult}× — cashed out!`, '#4ade80');
+    await db.from('users').update({ pam_bucks: userPB }).eq('id', currentUser.id);
+  } else {
+    // Bomb hit — lose entire bet, no refund
+    sessionPnl -= currentBet;
+    const gemsMsg = revealedGems > 0
+      ? `You had ${revealedGems} gem${revealedGems !== 1 ? 's' : ''} — should've cashed out!`
+      : `Lost ${currentBet.toLocaleString()} PB`;
+    showResult('💥 BOOM!', gemsMsg, '#f87171');
+    await db.from('users').update({ pam_bucks: userPB }).eq('id', currentUser.id);
+  }
+
+  currentUser.pam_bucks = userPB;
+  updateSessionStats();
+}
+
+// ── Cashout ───────────────────────────────────────────────────
+function cashOut() {
+  if (!gameActive || revealedGems === 0) return;
+  endGame(true);
+}
+
+// ── Handle action button ──────────────────────────────────────
+function handleAction() {
+  if (!currentUser) return;
+  if (gameActive) {
+    cashOut();
+  } else {
+    startGame();
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function setMines(n) {
+  if (gameActive) return;
+  mineCount = n;
+  document.querySelectorAll('.mine-opt').forEach(el => el.classList.remove('active'));
+  document.getElementById('m' + n).classList.add('active');
+  updateMultDisplay();
+}
+
+function adjustBet(factor) {
+  if (gameActive) return;
+  const inp = document.getElementById('betInput');
+  const v = Math.max(1, Math.min(userPB, Math.round(parseInt(inp.value || 1) * factor)));
+  inp.value = v;
+}
+
+function setBetMax() {
+  if (gameActive) return;
+  document.getElementById('betInput').value = userPB;
+}
+
+function lockControls(locked) {
+  document.getElementById('betInput').disabled = locked;
+  document.querySelectorAll('.mine-opt, .adj-btn').forEach(el => {
+    el.style.pointerEvents = locked ? 'none' : 'auto';
+    el.style.opacity = locked ? '0.4' : '1';
+  });
+}
+
+function updateActionBtn() {
+  const btn = document.getElementById('actionBtn');
+  if (gameActive && revealedGems > 0) {
+    const cashoutAmt = Math.round(currentBet * currentMult);
+    const inProfit = cashoutAmt > currentBet;
+    btn.textContent = `💸 Cash Out  •  ${cashoutAmt.toLocaleString()} PB`;
+    btn.className = inProfit ? 'action-btn cashout' : 'action-btn cashout-loss';
+    btn.disabled = false;
+  } else if (gameActive) {
+    btn.textContent = '⛏ Pick a tile…';
+    btn.className = 'action-btn';
+    btn.disabled = true;
+  } else {
+    btn.textContent = '▶ Place Bet';
+    btn.className = 'action-btn';
+    btn.disabled = false;
+  }
+}
+
+function updateMultDisplay() {
+  const displayMult = gameActive ? currentMult : calcMult(mineCount, 1);
+  const bet = parseInt(document.getElementById('betInput').value) || 0;
+  const profit = gameActive
+    ? Math.round(bet * currentMult) - bet
+    : Math.round(bet * calcMult(mineCount, 1)) - bet;
+
+  const multEl = document.getElementById('multVal');
+  const profitEl = document.getElementById('profitVal');
+
+  multEl.textContent = displayMult.toFixed(2) + '×';
+  multEl.style.background = profit >= 0
+    ? 'linear-gradient(135deg, var(--accent), var(--accent2))'
+    : 'linear-gradient(135deg, #f87171, #ef4444)';
+  multEl.style.webkitBackgroundClip = 'text';
+  multEl.style.backgroundClip = 'text';
+
+  profitEl.textContent = (profit >= 0 ? '+' : '') + profit.toLocaleString() + ' PB';
+  profitEl.style.color = profit >= 0 ? 'var(--success)' : 'var(--error)';
+}
+
+function updateSessionStats() {
+  document.getElementById('statGames').textContent = sessionGames;
+  const pnlEl = document.getElementById('statPnl');
+  pnlEl.textContent = (sessionPnl >= 0 ? '+' : '') + sessionPnl.toLocaleString() + ' PB';
+  pnlEl.style.color = sessionPnl > 0 ? 'var(--success)' : sessionPnl < 0 ? 'var(--error)' : 'var(--muted)';
+  document.getElementById('statBest').textContent = bestMult > 0 ? bestMult.toFixed(2) + '×' : '—';
+}
+
+function updatePBDisplay() {
+  document.getElementById('pbDisplay').textContent = userPB.toLocaleString() + ' PB';
+}
+
+function showResult(title, sub, color) {
+  const overlay = document.getElementById('resultOverlay');
+  const text = document.getElementById('resultText');
+  const subEl = document.getElementById('resultSub');
+  text.textContent = title;
+  text.style.color = color;
+  subEl.textContent = sub;
+  overlay.classList.add('show');
+  setTimeout(() => overlay.classList.remove('show'), 2400);
+}
+
+function flash(msg, type) {
+  // Simple toast — could be expanded
+  console.log(type + ':', msg);
+}
+
+// ── Audio ─────────────────────────────────────────────────────
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playGem() {
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const notes = [523, 659, 784];
+  const note = notes[revealedGems % notes.length];
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine'; osc.connect(gain); gain.connect(audioCtx.destination);
+  const t = audioCtx.currentTime;
+  osc.frequency.setValueAtTime(note + revealedGems * 18, t);
+  gain.gain.setValueAtTime(0.12, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+  osc.start(t); osc.stop(t + 0.18);
+}
+
+function playBoom() {
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sawtooth'; osc.connect(gain); gain.connect(audioCtx.destination);
+  const t = audioCtx.currentTime;
+  osc.frequency.setValueAtTime(220, t);
+  osc.frequency.exponentialRampToValueAtTime(55, t + 0.4);
+  gain.gain.setValueAtTime(0.18, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+  osc.start(t); osc.stop(t + 0.4);
+}
+
+// ── Auth ──────────────────────────────────────────────────────
+async function init() {
+  buildGrid();
+  updateMultDisplay();
+
+  const saved = localStorage.getItem('vault_session');
+  if (!saved) {
+    document.getElementById('loginPrompt').style.display = 'flex';
+    document.getElementById('actionBtn').disabled = true;
+    document.getElementById('pbDisplay').textContent = 'Not logged in';
+    return;
+  }
+
+  const { username } = JSON.parse(saved);
+  const { data, error } = await db.from('users').select('*').eq('username', username).single();
+  if (error || !data) {
+    document.getElementById('loginPrompt').style.display = 'flex';
+    return;
+  }
+
+  if (data.status === 'terminated') {
+    document.getElementById('loginPrompt').style.display = 'flex';
+    document.getElementById('loginPrompt').querySelector('h2').textContent = 'Account Terminated';
+    document.getElementById('loginPrompt').querySelector('p').textContent = 'Your account cannot access Mines.';
+    document.getElementById('loginPrompt').querySelector('a').style.display = 'none';
+    return;
+  }
+
+  currentUser = data;
+  userPB = data.pam_bucks ?? 10000;
+  updatePBDisplay();
+}
+
+// Update mult preview when bet changes
+document.getElementById('betInput').addEventListener('input', updateMultDisplay);
+
+init();
+</script>
+</body>
+</html>

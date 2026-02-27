@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crash — Pam's Casino</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>
+  :root {
+    --bg: #0a0900;
+    --surface: #12100a;
+    --surface2: #1a1810;
+    --border: #2a2310;
+    --accent: #FFD700;
+    --accent2: #ff8c00;
+    --text: #f0ead8;
+    --muted: #7a6a40;
+    --success: #4ade80;
+    --error: #f87171;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 50% 0%, rgba(255,215,0,0.06) 0%, transparent 55%),
+      radial-gradient(ellipse 40% 60% at 90% 80%, rgba(255,60,0,0.03) 0%, transparent 50%);
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 24px;
+    background: rgba(10,9,0,0.9);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+    z-index: 10; flex-shrink: 0;
+    position: sticky; top: 0;
+  }
+
+  .back-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: transparent; border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 14px;
+    color: var(--muted); font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem; cursor: pointer; transition: all 0.2s;
+    text-decoration: none;
+  }
+  .back-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .header-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 900; font-size: 1.2rem;
+    letter-spacing: 0.15em; text-transform: uppercase;
+  }
+  .header-title span {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .pb-display {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255,215,0,0.07);
+    border: 1px solid rgba(255,215,0,0.2);
+    border-radius: 8px; padding: 7px 14px;
+  }
+  .pb-display .pb-label { font-size: 0.72rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+  .pb-display .pb-val { font-family: 'Syne', sans-serif; font-weight: 800; color: var(--accent); font-size: 1rem; }
+
+  /* ── MAIN ── */
+  .game-wrap {
+    display: flex; flex: 1;
+    position: relative; z-index: 1;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 240px; flex-shrink: 0;
+    background: rgba(18,16,10,0.98);
+    border-right: 1px solid var(--border);
+    padding: 20px 16px;
+    display: flex; flex-direction: column; gap: 14px;
+    overflow-y: auto;
+  }
+
+  .sidebar-section {
+    background: rgba(255,215,0,0.03);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px;
+  }
+
+  .sidebar-label {
+    font-size: 0.68rem; font-family: 'Syne', sans-serif;
+    font-weight: 700; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .bet-input {
+    width: 100%; padding: 10px 12px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 0.95rem;
+    outline: none; transition: border-color 0.2s;
+    margin-bottom: 8px;
+  }
+  .bet-input:focus { border-color: var(--accent); }
+  .bet-input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .half-double { display: flex; gap: 6px; margin-bottom: 8px; }
+  .adj-btn {
+    flex: 1; padding: 8px 4px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--muted);
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 0.78rem; cursor: pointer; transition: all 0.15s;
+    text-align: center;
+  }
+  .adj-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .adj-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Auto cashout */
+  .cashout-row { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+  .cashout-label { font-size: 0.72rem; color: var(--muted); }
+  .cashout-input {
+    width: 100%; padding: 10px 12px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 0.95rem;
+    outline: none; transition: border-color 0.2s;
+  }
+  .cashout-input:focus { border-color: var(--accent); }
+  .cashout-input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Action button */
+  .action-btn {
+    width: 100%; padding: 14px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; border-radius: 10px;
+    color: #000; font-family: 'Syne', sans-serif;
+    font-weight: 900; font-size: 0.9rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .action-btn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(255,215,0,0.25); }
+  .action-btn:active:not(:disabled) { transform: translateY(0); }
+  .action-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; box-shadow: none; }
+  .action-btn.cashout-btn {
+    background: linear-gradient(135deg, #4ade80, #22c55e);
+    animation: pulse-cashout 0.8s ease-in-out infinite alternate;
+  }
+  @keyframes pulse-cashout {
+    from { box-shadow: 0 0 10px rgba(74,222,128,0.3); }
+    to { box-shadow: 0 0 25px rgba(74,222,128,0.6); }
+  }
+
+  /* Session stats */
+  .stat-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 4px 0; font-size: 0.8rem;
+  }
+  .stat-key { color: var(--muted); }
+  .stat-v { font-family: 'DM Mono', monospace; }
+
+  /* ── CRASH AREA ── */
+  .crash-area {
+    flex: 1; display: flex; flex-direction: column;
+    padding: 24px; gap: 16px; position: relative;
+  }
+
+  /* History pills at top */
+  .crash-history {
+    display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+  }
+  .ch-pill {
+    padding: 4px 10px; border-radius: 20px;
+    font-family: 'DM Mono', monospace; font-size: 0.75rem; font-weight: 500;
+    animation: pill-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes pill-in { from { transform: scale(0) translateY(5px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+  .ch-pill.low  { background: rgba(248,113,113,0.15); color: var(--error); border: 1px solid rgba(248,113,113,0.3); }
+  .ch-pill.mid  { background: rgba(255,215,0,0.1); color: var(--accent); border: 1px solid rgba(255,215,0,0.25); }
+  .ch-pill.high { background: rgba(74,222,128,0.12); color: var(--success); border: 1px solid rgba(74,222,128,0.25); }
+
+  /* Main graph card */
+  .graph-card {
+    flex: 1;
+    background: rgba(18,16,10,0.95);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    position: relative; overflow: hidden;
+    min-height: 320px;
+  }
+
+  .graph-card::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse 70% 60% at 30% 80%, rgba(255,215,0,0.03) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  canvas#crashCanvas {
+    width: 100%; height: 100%;
+    display: block;
+  }
+
+  /* Big multiplier overlay */
+  .mult-overlay {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center; pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .mult-big {
+    font-family: 'Syne', sans-serif; font-weight: 900;
+    font-size: clamp(3rem, 7vw, 6rem);
+    line-height: 1;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    transition: all 0.1s;
+  }
+  .mult-big.crashed {
+    background: linear-gradient(135deg, var(--error), #ef4444);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: crash-shake 0.5s ease;
+  }
+  .mult-big.cashed {
+    background: linear-gradient(135deg, var(--success), #22c55e);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: win-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes crash-shake {
+    0%,100% { transform: translateX(0) scale(1); }
+    15% { transform: translateX(-12px) scale(1.05); }
+    30% { transform: translateX(12px) scale(1.05); }
+    45% { transform: translateX(-8px); }
+    60% { transform: translateX(8px); }
+    75% { transform: translateX(-4px); }
+  }
+  @keyframes win-pop {
+    0% { transform: scale(0.8); }
+    60% { transform: scale(1.15); }
+    100% { transform: scale(1); }
+  }
+
+  .mult-sublabel {
+    font-family: 'DM Mono', monospace; font-size: 0.85rem;
+    color: var(--muted); margin-top: 6px; letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .mult-sublabel.crashed-label { color: var(--error); }
+  .mult-sublabel.cashed-label { color: var(--success); }
+
+  /* Profit popup inside graph */
+  .profit-popup {
+    position: absolute; top: 24px; right: 24px;
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 1.4rem;
+    opacity: 0; pointer-events: none;
+    transition: all 0.3s;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+  }
+  .profit-popup.show { opacity: 1; animation: float-up 1.8s ease forwards; }
+  @keyframes float-up {
+    0% { opacity: 0; transform: translateY(10px); }
+    20% { opacity: 1; transform: translateY(0); }
+    80% { opacity: 1; transform: translateY(-10px); }
+    100% { opacity: 0; transform: translateY(-20px); }
+  }
+
+  /* Idle / countdown overlay */
+  .countdown-overlay {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    transition: opacity 0.4s;
+    pointer-events: none;
+  }
+  .countdown-overlay.hidden { opacity: 0; }
+
+  /* Crashed full overlay */
+  .crashed-overlay {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(248,113,113,0.08);
+    pointer-events: none; opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .crashed-overlay.show { opacity: 1; }
+
+  /* Login overlay */
+  .login-prompt {
+    position: absolute; inset: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(10,9,0,0.85); backdrop-filter: blur(4px);
+  }
+  .login-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 32px; text-align: center; max-width: 320px;
+  }
+  .login-box h2 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.3rem; margin-bottom: 8px; }
+  .login-box p { color: var(--muted); font-size: 0.88rem; margin-bottom: 20px; line-height: 1.6; }
+  .login-link {
+    display: inline-block; padding: 12px 28px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px; color: #000;
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 0.85rem; letter-spacing: 0.1em;
+    text-transform: uppercase; text-decoration: none; transition: opacity 0.2s;
+  }
+  .login-link:hover { opacity: 0.85; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 24px;
+    font-family: 'DM Mono', monospace; font-size: 0.85rem;
+    z-index: 100; transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s;
+    opacity: 0; pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  .toast.win-toast { color: var(--success); border-color: rgba(74,222,128,0.3); }
+  .toast.lose-toast { color: var(--error); border-color: rgba(248,113,113,0.3); }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  @media (max-width: 640px) {
+    .sidebar { width: 190px; }
+    .crash-area { padding: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <a class="back-btn" href="index.html">← Back</a>
+  <div class="header-title">🚀 <span>Crash</span></div>
+  <div class="pb-display">
+    <span class="pb-label">💰</span>
+    <span class="pb-val" id="pbDisplay">—</span>
+  </div>
+</div>
+
+<div class="game-wrap">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- Bet -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Bet Amount</div>
+      <input class="bet-input" id="betInput" type="number" min="1" value="100" placeholder="100">
+      <div class="half-double">
+        <button class="adj-btn" id="halfBtn" onclick="adjustBet(0.5)">½</button>
+        <button class="adj-btn" id="doubleBtn" onclick="adjustBet(2)">2×</button>
+        <button class="adj-btn" id="maxBtn" onclick="setBetMax()">Max</button>
+      </div>
+    </div>
+
+    <!-- Auto Cashout -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Auto Cash Out</div>
+      <div class="cashout-row">
+        <span class="cashout-label">Cash out at multiplier (0 = manual)</span>
+        <input class="cashout-input" id="autoCashout" type="number" min="1.01" step="0.01" value="0" placeholder="e.g. 2.00">
+      </div>
+    </div>
+
+    <!-- Action Button -->
+    <button class="action-btn" id="actionBtn" onclick="handleAction()">Place Bet</button>
+
+    <!-- See Crash Point button (shown only after cashing out) -->
+    <button class="action-btn" id="seeCrashBtn" onclick="skipToCrash()" style="display:none; background: rgba(255,215,0,0.08); border: 1px solid rgba(255,215,0,0.3); color: var(--accent); font-size:0.82rem;">
+      Skip to Crash Point →
+    </button>
+
+    <!-- Live info -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Live Info</div>
+      <div class="stat-row">
+        <span class="stat-key">Bet</span>
+        <span class="stat-v" id="liveBet">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-key">Multiplier</span>
+        <span class="stat-v" id="liveMult">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-key">Current Win</span>
+        <span class="stat-v" id="liveWin" style="color: var(--success)">—</span>
+      </div>
+    </div>
+
+    <!-- Session Stats -->
+    <div class="sidebar-section">
+      <div class="sidebar-label">Session</div>
+      <div class="stat-row">
+        <span class="stat-key">Games</span>
+        <span class="stat-v" id="statGames">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-key">Wins</span>
+        <span class="stat-v" id="statWins">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-key">P&amp;L</span>
+        <span class="stat-v" id="statPnl">0 PB</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-key">Best Cash</span>
+        <span class="stat-v" id="statBest">—</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CRASH AREA -->
+  <div class="crash-area">
+
+    <!-- History pills -->
+    <div class="crash-history" id="crashHistory"></div>
+
+    <!-- Graph card -->
+    <div class="graph-card" id="graphCard">
+      <canvas id="crashCanvas"></canvas>
+
+      <!-- Multiplier overlay -->
+      <div class="mult-overlay" id="multOverlay">
+        <div class="mult-big" id="multBig">1.00×</div>
+        <div class="mult-sublabel" id="multSub">Waiting...</div>
+      </div>
+
+      <!-- Profit popup -->
+      <div class="profit-popup" id="profitPopup"></div>
+
+      <!-- Idle overlay — shown before bet placed -->
+      <div class="countdown-overlay" id="idleOverlay">
+        <div class="countdown-sub" style="font-size:1rem; color: var(--muted); letter-spacing:0.12em; text-transform:uppercase;">Place a bet to launch 🚀</div>
+      </div>
+
+      <!-- Crashed overlay (red flash) -->
+      <div class="crashed-overlay" id="crashedOverlay"></div>
+
+      <!-- Login prompt -->
+      <div class="login-prompt" id="loginPrompt" style="display:none;">
+        <div class="login-box">
+          <h2>Sign in to play</h2>
+          <p>You need a Pam's Casino account to bet Pam Bucks on Crash.</p>
+          <a class="login-link" href="index.html">Sign In →</a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Supabase ──────────────────────────────────────────────────
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let userPB = 0;
+
+// ── Game State ────────────────────────────────────────────────
+// States: 'idle' | 'countdown' | 'flying' | 'crashed'
+let gameState = 'idle';
+let currentMult = 1.00;
+let crashPoint = 1.00;
+let gameStartTime = 0;
+let animFrame = null;
+
+// Player state
+let playerBet = 0;
+let playerBetLocked = false;  // once game starts, bet is locked
+let playerCashedOut = false;
+let playerCashoutMult = 0;
+
+// Session
+let sessionGames = 0;
+let sessionWins = 0;
+let sessionPnl = 0;
+let bestCashout = 0;
+let crashHistory = [];
+
+// Canvas
+let canvas, ctx;
+let graphPoints = []; // {t, m} pairs
+
+// ── Audio Context ─────────────────────────────────────────────
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function resumeAudio() { if (audioCtx.state === 'suspended') audioCtx.resume(); }
+
+function playBeep(freq, dur, vol = 0.08) {
+  resumeAudio();
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(freq, t);
+  gain.gain.setValueAtTime(vol, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(t); osc.stop(t + dur);
+}
+
+function playRocketTick(mult) {
+  resumeAudio();
+  const t = audioCtx.currentTime;
+  // Rising pitch as multiplier rises
+  const freq = 200 + Math.min(mult * 40, 600);
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(freq, t);
+  gain.gain.setValueAtTime(0.03, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(t); osc.stop(t + 0.06);
+}
+
+function playCrash() {
+  resumeAudio();
+  const t = audioCtx.currentTime;
+  // Explosion: noise burst + descending tone
+  const bufSize = audioCtx.sampleRate * 0.4;
+  const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufSize * 0.3));
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buf;
+  const lpf = audioCtx.createBiquadFilter();
+  lpf.type = 'lowpass'; lpf.frequency.value = 400;
+  const nGain = audioCtx.createGain();
+  nGain.gain.setValueAtTime(0.5, t);
+  nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+  noise.connect(lpf); lpf.connect(nGain); nGain.connect(audioCtx.destination);
+  noise.start(t); noise.stop(t + 0.4);
+
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(300, t);
+  osc.frequency.exponentialRampToValueAtTime(40, t + 0.6);
+  gain.gain.setValueAtTime(0.12, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(t); osc.stop(t + 0.6);
+}
+
+function playCashout() {
+  resumeAudio();
+  const t = audioCtx.currentTime;
+  [523, 659, 784, 1047].forEach((freq, i) => {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    const st = t + i * 0.06;
+    gain.gain.setValueAtTime(0, st);
+    gain.gain.linearRampToValueAtTime(0.14, st + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, st + 0.25);
+    osc.frequency.setValueAtTime(freq, st);
+    osc.start(st); osc.stop(st + 0.25);
+  });
+}
+
+// ── Crash Point Generator ─────────────────────────────────────
+// House edge ~5%. Formula adapted from Stake-style crash.
+function generateCrashPoint() {
+  // Using provably fair style: exponential distribution
+  // P(crash >= x) = 0.95 / x  for x >= 1
+  // So x = 0.95 / U where U ~ Uniform(0,1)
+  // Clamp to minimum 1.00
+  const e = 0.99; // 1% house edge — keeps it fair but slightly house-favored
+  const r = Math.random();
+  if (r < (1 - e)) return 1.00; // instant crash ~1% of the time
+  return Math.max(1.00, parseFloat((e / r).toFixed(2)));
+}
+
+// ── Canvas ────────────────────────────────────────────────────
+function initCanvas() {
+  canvas = document.getElementById('crashCanvas');
+  ctx = canvas.getContext('2d');
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+}
+
+function resizeCanvas() {
+  const card = document.getElementById('graphCard');
+  canvas.width = card.offsetWidth * window.devicePixelRatio;
+  canvas.height = card.offsetHeight * window.devicePixelRatio;
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  drawGraph();
+}
+
+const PAD = { top: 32, right: 32, bottom: 40, left: 56 };
+
+function drawGraph() {
+  if (!canvas || !ctx) return;
+  const W = canvas.offsetWidth;
+  const H = canvas.offsetHeight;
+  ctx.clearRect(0, 0, W, H);
+
+  const plotW = W - PAD.left - PAD.right;
+  const plotH = H - PAD.top - PAD.bottom;
+
+  // Background grid
+  ctx.strokeStyle = 'rgba(42,35,16,0.6)';
+  ctx.lineWidth = 1;
+
+  // Determine max time and mult for scaling
+  const maxTime = Math.max(10, graphPoints.length > 0 ? graphPoints[graphPoints.length-1].t + 2 : 10);
+  const maxMult = Math.max(2, graphPoints.length > 0 ? graphPoints[graphPoints.length-1].m * 1.2 : 2);
+
+  // Y axis labels
+  const ySteps = 5;
+  ctx.font = `500 10px 'DM Mono', monospace`;
+  ctx.fillStyle = 'rgba(122,106,64,0.8)';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= ySteps; i++) {
+    const m = maxMult * (i / ySteps);
+    const y = PAD.top + plotH - (i / ySteps) * plotH;
+    ctx.beginPath();
+    ctx.moveTo(PAD.left, y);
+    ctx.lineTo(PAD.left + plotW, y);
+    ctx.strokeStyle = 'rgba(42,35,16,0.5)';
+    ctx.stroke();
+    ctx.fillText(m.toFixed(1) + '×', PAD.left - 6, y + 4);
+  }
+
+  // X axis labels
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(122,106,64,0.8)';
+  const xSteps = Math.min(8, Math.floor(maxTime));
+  for (let i = 0; i <= xSteps; i++) {
+    const t = (i / xSteps) * maxTime;
+    const x = PAD.left + (i / xSteps) * plotW;
+    ctx.beginPath();
+    ctx.moveTo(x, PAD.top);
+    ctx.lineTo(x, PAD.top + plotH);
+    ctx.strokeStyle = 'rgba(42,35,16,0.4)';
+    ctx.stroke();
+    ctx.fillText(t.toFixed(1) + 's', x, PAD.top + plotH + 20);
+  }
+
+  if (graphPoints.length < 2) return;
+
+  // Map function
+  const toX = t => PAD.left + (t / maxTime) * plotW;
+  const toY = m => PAD.top + plotH - ((m - 1) / (maxMult - 1)) * plotH;
+
+  // Glow gradient fill under curve
+  const lastPt = graphPoints[graphPoints.length-1];
+  const gradient = ctx.createLinearGradient(PAD.left, PAD.top, PAD.left, PAD.top + plotH);
+  if (gameState === 'crashed') {
+    gradient.addColorStop(0, 'rgba(248,113,113,0.25)');
+    gradient.addColorStop(1, 'rgba(248,113,113,0.02)');
+  } else {
+    gradient.addColorStop(0, 'rgba(255,215,0,0.2)');
+    gradient.addColorStop(1, 'rgba(255,215,0,0.01)');
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(toX(graphPoints[0].t), toY(graphPoints[0].m));
+  for (let i = 1; i < graphPoints.length; i++) {
+    ctx.lineTo(toX(graphPoints[i].t), toY(graphPoints[i].m));
+  }
+  ctx.lineTo(toX(lastPt.t), PAD.top + plotH);
+  ctx.lineTo(toX(graphPoints[0].t), PAD.top + plotH);
+  ctx.closePath();
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  // Main curve line
+  ctx.beginPath();
+  ctx.moveTo(toX(graphPoints[0].t), toY(graphPoints[0].m));
+  for (let i = 1; i < graphPoints.length; i++) {
+    ctx.lineTo(toX(graphPoints[i].t), toY(graphPoints[i].m));
+  }
+  ctx.strokeStyle = gameState === 'crashed'
+    ? 'rgba(248,113,113,0.9)'
+    : 'rgba(255,215,0,0.9)';
+  ctx.lineWidth = 2.5;
+  ctx.shadowColor = gameState === 'crashed' ? 'rgba(248,113,113,0.5)' : 'rgba(255,215,0,0.4)';
+  ctx.shadowBlur = 8;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Dot at end
+  const ex = toX(lastPt.t);
+  const ey = toY(lastPt.m);
+  ctx.beginPath();
+  ctx.arc(ex, ey, 5, 0, Math.PI * 2);
+  ctx.fillStyle = gameState === 'crashed' ? 'rgba(248,113,113,1)' : 'rgba(255,215,0,1)';
+  ctx.shadowColor = gameState === 'crashed' ? 'rgba(248,113,113,0.8)' : 'rgba(255,215,0,0.8)';
+  ctx.shadowBlur = 12;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Cashout line if player cashed out
+  if (playerCashedOut && playerCashoutMult > 1) {
+    const cashY = toY(playerCashoutMult);
+    ctx.beginPath();
+    ctx.setLineDash([5, 5]);
+    ctx.moveTo(PAD.left, cashY);
+    ctx.lineTo(PAD.left + plotW, cashY);
+    ctx.strokeStyle = 'rgba(74,222,128,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = `700 11px 'DM Mono', monospace`;
+    ctx.fillStyle = 'rgba(74,222,128,0.9)';
+    ctx.textAlign = 'left';
+    ctx.fillText('✓ ' + playerCashoutMult.toFixed(2) + '×', PAD.left + 4, cashY - 6);
+  }
+}
+
+// ── Game Loop ─────────────────────────────────────────────────
+let tickCounter = 0;
+function gameLoop(timestamp) {
+  if (gameState !== 'flying') return;
+
+  const elapsed = (timestamp - gameStartTime) / 1000; // seconds
+  // Exponential growth: mult = e^(0.15 * t) roughly, feels like real crash
+  currentMult = Math.max(1.00, parseFloat(Math.pow(Math.E, 0.12 * elapsed).toFixed(2)));
+
+  // Record point every ~100ms
+  tickCounter++;
+  if (tickCounter % 3 === 0) {
+    graphPoints.push({ t: elapsed, m: currentMult });
+  }
+
+  // Update multiplier display
+  const multBig = document.getElementById('multBig');
+  multBig.textContent = currentMult.toFixed(2) + '×';
+
+  // Update live info
+  if (playerBetLocked) {
+    document.getElementById('liveMult').textContent = currentMult.toFixed(2) + '×';
+    const liveWinVal = Math.round(playerBet * currentMult);
+    document.getElementById('liveWin').textContent = liveWinVal.toLocaleString() + ' PB';
+  }
+
+  // Rocket tick sound every ~0.5 seconds
+  if (tickCounter % 15 === 0) {
+    playRocketTick(currentMult);
+  }
+
+  // Auto cashout check
+  const autoCO = parseFloat(document.getElementById('autoCashout').value);
+  if (playerBetLocked && !playerCashedOut && autoCO >= 1.01 && currentMult >= autoCO) {
+    doCashout();
+    drawGraph();
+    animFrame = requestAnimationFrame(gameLoop);
+    return;
+  }
+
+  // Check if crashed
+  if (currentMult >= crashPoint) {
+    currentMult = crashPoint;
+    graphPoints.push({ t: elapsed, m: crashPoint });
+    endGame();
+    return;
+  }
+
+  drawGraph();
+  animFrame = requestAnimationFrame(gameLoop);
+}
+
+// ── Start Game ────────────────────────────────────────────────
+function startGame() {
+  gameState = 'flying';
+  graphPoints = [];
+  playerCashedOut = false;
+  playerCashoutMult = 0;
+  currentMult = 1.00;
+  tickCounter = 0;
+
+  // Generate crash point fresh each round
+  crashPoint = generateCrashPoint();
+
+  // Reset overlays
+  const multBig = document.getElementById('multBig');
+  multBig.className = 'mult-big';
+  multBig.textContent = '1.00×';
+  document.getElementById('multSub').className = 'mult-sublabel';
+  document.getElementById('multSub').textContent = 'Flying...';
+  document.getElementById('crashedOverlay').className = 'crashed-overlay';
+  document.getElementById('profitPopup').className = 'profit-popup';
+
+  // Hide idle overlay
+  const idle = document.getElementById('idleOverlay');
+  idle.className = 'countdown-overlay hidden';
+
+  // Button → Cash Out
+  const btn = document.getElementById('actionBtn');
+  btn.textContent = 'Cash Out';
+  btn.className = 'action-btn cashout-btn';
+  btn.disabled = false;
+
+  // Update live info
+  document.getElementById('liveMult').textContent = '1.00×';
+  document.getElementById('liveWin').textContent = playerBet.toLocaleString() + ' PB';
+
+  gameStartTime = performance.now();
+  animFrame = requestAnimationFrame(gameLoop);
+}
+
+function endGame() {
+  gameState = 'crashed';
+  if (animFrame) cancelAnimationFrame(animFrame);
+
+  // If player had a bet and didn't cash out → they lose
+  if (playerBetLocked && !playerCashedOut) {
+    // Loss — already deducted on bet placement
+    sessionGames++;
+    sessionPnl -= playerBet;
+    playCrash();
+    showToast(`Crashed at ${crashPoint.toFixed(2)}× — Lost ${playerBet.toLocaleString()} PB`, 'lose');
+
+    const multBig = document.getElementById('multBig');
+    multBig.className = 'mult-big crashed';
+    multBig.textContent = crashPoint.toFixed(2) + '×';
+    document.getElementById('multSub').className = 'mult-sublabel crashed-label';
+    document.getElementById('multSub').textContent = '💥 CRASHED';
+    document.getElementById('crashedOverlay').className = 'crashed-overlay show';
+
+    // Flash red
+    setTimeout(() => {
+      document.getElementById('crashedOverlay').className = 'crashed-overlay';
+    }, 600);
+
+    addToHistory(crashPoint, false);
+  } else {
+    // No bet or already cashed out — just show crash
+    if (!playerBetLocked) {
+      addToHistory(crashPoint, false);
+    }
+    playCrash();
+    const multBig = document.getElementById('multBig');
+    multBig.className = 'mult-big crashed';
+    multBig.textContent = crashPoint.toFixed(2) + '×';
+    document.getElementById('multSub').className = 'mult-sublabel crashed-label';
+    document.getElementById('multSub').textContent = '💥 CRASHED';
+    document.getElementById('crashedOverlay').className = 'crashed-overlay show';
+    setTimeout(() => {
+      document.getElementById('crashedOverlay').className = 'crashed-overlay';
+    }, 600);
+  }
+
+  updateSessionStats();
+  updatePBDisplay();
+  drawGraph();
+
+  // Update DB if had a bet
+  if (playerBetLocked && !playerCashedOut) {
+    saveBalance();
+  }
+
+  // Reset player state
+  playerBetLocked = false;
+
+  // Reset button
+  const btn = document.getElementById('actionBtn');
+  btn.textContent = 'Place Bet';
+  btn.className = 'action-btn';
+  btn.disabled = !currentUser;
+  document.getElementById('seeCrashBtn').style.display = 'none';
+
+  // Re-enable bet inputs
+  setBetLockState(false);
+
+  // Live info reset
+  document.getElementById('liveBet').textContent = '—';
+  document.getElementById('liveMult').textContent = '—';
+  document.getElementById('liveWin').textContent = '—';
+
+  // Back to idle — show place bet overlay after a moment
+  setTimeout(() => {
+    if (gameState === 'crashed') {
+      gameState = 'idle';
+      const idle = document.getElementById('idleOverlay');
+      idle.className = 'countdown-overlay';
+      document.getElementById('multBig').className = 'mult-big';
+      document.getElementById('multBig').textContent = '1.00×';
+      document.getElementById('multSub').className = 'mult-sublabel';
+      document.getElementById('multSub').textContent = 'Place a bet to launch';
+      graphPoints = [];
+      drawGraph();
+    }
+  }, 3000);
+}
+
+function doCashout() {
+  if (!playerBetLocked || playerCashedOut || gameState !== 'flying') return;
+
+  playerCashedOut = true;
+  playerCashoutMult = currentMult;
+  const payout = Math.round(playerBet * playerCashoutMult);
+  const net = payout - playerBet;
+
+  userPB += payout;
+  sessionGames++;
+  sessionWins++;
+  sessionPnl += net;
+  if (playerCashoutMult > bestCashout) bestCashout = playerCashoutMult;
+
+  playCashout();
+  updatePBDisplay();
+  updateSessionStats();
+  saveBalance();
+  addToHistory(playerCashoutMult, true);
+
+  showToast(`Cashed out at ${playerCashoutMult.toFixed(2)}× — +${net.toLocaleString()} PB`, 'win');
+
+  // Show profit popup
+  const pp = document.getElementById('profitPopup');
+  pp.textContent = '+' + net.toLocaleString() + ' PB';
+  pp.style.color = 'var(--success)';
+  pp.className = 'profit-popup show';
+  setTimeout(() => { pp.className = 'profit-popup'; }, 1800);
+
+  const multBig = document.getElementById('multBig');
+  multBig.className = 'mult-big cashed';
+  document.getElementById('multSub').className = 'mult-sublabel cashed-label';
+  document.getElementById('multSub').textContent = '✓ CASHED OUT';
+
+  // Button becomes disabled since already cashed out; show skip button
+  const btn = document.getElementById('actionBtn');
+  btn.textContent = '✓ Cashed Out';
+  btn.className = 'action-btn';
+  btn.disabled = true;
+  document.getElementById('seeCrashBtn').style.display = 'block';
+}
+
+// ── Skip to Crash ─────────────────────────────────────────────
+function skipToCrash() {
+  if (gameState !== 'flying') return;
+  document.getElementById('seeCrashBtn').style.display = 'none';
+  // Cancel the live loop and jump straight to the crash point
+  if (animFrame) cancelAnimationFrame(animFrame);
+  currentMult = crashPoint;
+  // Add final point at crash
+  const elapsed = graphPoints.length > 0 ? graphPoints[graphPoints.length-1].t + 0.5 : 1;
+  graphPoints.push({ t: elapsed, m: crashPoint });
+  endGame();
+}
+
+
+function handleAction() {
+  resumeAudio();
+  if (!currentUser) return;
+
+  // If flying and bet placed → cash out
+  if (gameState === 'flying' && playerBetLocked && !playerCashedOut) {
+    doCashout();
+    return;
+  }
+
+  // If idle or crashed → place bet and launch immediately
+  if (gameState === 'idle' || gameState === 'crashed') {
+    const bet = parseInt(document.getElementById('betInput').value);
+    if (isNaN(bet) || bet < 1) { showToast('Enter a valid bet', 'lose'); return; }
+    if (bet > userPB) { showToast('Not enough PB!', 'lose'); return; }
+
+    playerBet = bet;
+    playerBetLocked = true;
+    playerCashedOut = false;
+    playerCashoutMult = 0;
+
+    // Deduct bet immediately
+    userPB -= bet;
+    updatePBDisplay();
+
+    // Update live info
+    document.getElementById('liveBet').textContent = bet.toLocaleString() + ' PB';
+
+    // Lock inputs
+    setBetLockState(true);
+
+    // Launch!
+    startGame();
+    return;
+  }
+}
+
+// ── Bet Lock ──────────────────────────────────────────────────
+function setBetLockState(locked) {
+  document.getElementById('betInput').disabled = locked;
+  document.getElementById('autoCashout').disabled = locked;
+  document.getElementById('halfBtn').disabled = locked;
+  document.getElementById('doubleBtn').disabled = locked;
+  document.getElementById('maxBtn').disabled = locked;
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function adjustBet(factor) {
+  if (document.getElementById('betInput').disabled) return;
+  const inp = document.getElementById('betInput');
+  const v = Math.max(1, Math.min(userPB, Math.round(parseInt(inp.value || 1) * factor)));
+  inp.value = v;
+}
+
+function setBetMax() {
+  if (document.getElementById('betInput').disabled) return;
+  document.getElementById('betInput').value = userPB;
+}
+
+async function saveBalance() {
+  if (!currentUser) return;
+  try {
+    await db.from('users').update({ pam_bucks: userPB }).eq('id', currentUser.id);
+    currentUser.pam_bucks = userPB;
+  } catch(e) {}
+}
+
+function addToHistory(mult, cashedOut) {
+  crashHistory.unshift({ mult, cashedOut });
+  if (crashHistory.length > 20) crashHistory.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  const container = document.getElementById('crashHistory');
+  container.innerHTML = '';
+  crashHistory.forEach(h => {
+    const pill = document.createElement('div');
+    let cls = 'ch-pill ';
+    if (h.mult < 1.5) cls += 'low';
+    else if (h.mult < 3) cls += 'mid';
+    else cls += 'high';
+    pill.className = cls;
+    pill.textContent = h.mult.toFixed(2) + '×';
+    pill.title = h.cashedOut ? 'Cashed out' : 'Crashed';
+    container.appendChild(pill);
+  });
+}
+
+function updateSessionStats() {
+  document.getElementById('statGames').textContent = sessionGames;
+  document.getElementById('statWins').textContent = sessionWins;
+  const pnlEl = document.getElementById('statPnl');
+  pnlEl.textContent = (sessionPnl >= 0 ? '+' : '') + sessionPnl.toLocaleString() + ' PB';
+  pnlEl.style.color = sessionPnl > 0 ? 'var(--success)' : sessionPnl < 0 ? 'var(--error)' : 'var(--muted)';
+  document.getElementById('statBest').textContent = bestCashout > 1 ? bestCashout.toFixed(2) + '×' : '—';
+}
+
+function updatePBDisplay() {
+  document.getElementById('pbDisplay').textContent = userPB.toLocaleString() + ' PB';
+}
+
+let toastTimer;
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (type === 'win' ? 'win-toast' : 'lose-toast');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = 'toast'; }, 2800);
+}
+
+// ── Auth / Init ───────────────────────────────────────────────
+async function init() {
+  initCanvas();
+  gameState = 'idle';
+
+  // Show idle overlay
+  document.getElementById('idleOverlay').className = 'countdown-overlay';
+  document.getElementById('multSub').textContent = 'Place a bet to launch';
+
+  const saved = localStorage.getItem('vault_session');
+  if (!saved) {
+    document.getElementById('loginPrompt').style.display = 'flex';
+    document.getElementById('actionBtn').disabled = true;
+    document.getElementById('pbDisplay').textContent = 'Not logged in';
+    return;
+  }
+
+  const { username } = JSON.parse(saved);
+  const { data, error } = await db.from('users').select('*').eq('username', username).single();
+  if (error || !data) {
+    document.getElementById('loginPrompt').style.display = 'flex';
+    return;
+  }
+
+  if (data.status === 'terminated') {
+    document.getElementById('loginPrompt').style.display = 'flex';
+    document.getElementById('loginPrompt').querySelector('h2').textContent = 'Account Terminated';
+    document.getElementById('loginPrompt').querySelector('p').textContent = 'Your account cannot access Crash.';
+    document.getElementById('loginPrompt').querySelector('a').style.display = 'none';
+    return;
+  }
+
+  currentUser = data;
+  userPB = data.pam_bucks ?? 10000;
+  updatePBDisplay();
+}
+
+// Kick off
+init();
+</script>
+</body>
+</html>

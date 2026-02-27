@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>The Banker — Pam's Casino</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>
+  :root {
+    --bg: #06080a;
+    --surface: #0d1117;
+    --surface2: #111820;
+    --border: #1e2a35;
+    --accent: #FFD700;
+    --accent2: #ff8c00;
+    --text: #e8dfc8;
+    --muted: #5a6a7a;
+    --success: #4ade80;
+    --error: #f87171;
+    --banker: #c9a84c;
+    --banker-glow: rgba(201,168,76,0.2);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 50% 0%, rgba(201,168,76,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 40% at 80% 80%, rgba(255,140,0,0.04) 0%, transparent 50%);
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 24px;
+    background: rgba(6,8,10,0.92);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+    z-index: 10; flex-shrink: 0;
+    position: sticky; top: 0;
+  }
+  .back-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: transparent; border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 14px;
+    color: var(--muted); font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem; cursor: pointer; transition: all 0.2s;
+    text-decoration: none;
+  }
+  .back-btn:hover { border-color: var(--banker); color: var(--banker); }
+  .header-title {
+    font-family: 'Syne', sans-serif; font-weight: 900; font-size: 1.1rem;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--banker);
+  }
+  .pb-display {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255,215,0,0.07); border: 1px solid rgba(255,215,0,0.2);
+    border-radius: 8px; padding: 7px 14px;
+  }
+  .pb-display .pb-val { font-family: 'Syne', sans-serif; font-weight: 800; color: var(--accent); font-size: 0.95rem; }
+
+  /* ── MAIN ── */
+  .main {
+    flex: 1; overflow-y: auto; padding: 32px 24px;
+    position: relative; z-index: 1;
+    max-width: 600px; margin: 0 auto; width: 100%;
+  }
+
+  /* ── BANKER SCENE ── */
+  .banker-scene {
+    display: flex; flex-direction: column; align-items: center;
+    margin-bottom: 32px; position: relative;
+  }
+
+  .banker-img-wrap {
+    width: 140px; height: 140px;
+    position: relative; margin-bottom: 16px;
+  }
+
+  .banker-img-wrap img {
+    width: 100%; height: 100%; object-fit: contain;
+    filter: drop-shadow(0 0 24px var(--banker-glow));
+    transition: filter 0.5s;
+  }
+
+  .banker-img-wrap.happy img { filter: drop-shadow(0 0 32px rgba(74,222,128,0.35)); }
+  .banker-img-wrap.neutral img { filter: drop-shadow(0 0 24px rgba(201,168,76,0.25)); }
+  .banker-img-wrap.angry img { filter: drop-shadow(0 0 32px rgba(248,113,113,0.4)); }
+
+  .banker-mood-ring {
+    position: absolute; inset: -6px; border-radius: 50%;
+    border: 2px solid transparent; transition: border-color 0.5s;
+    animation: moodPulse 3s ease infinite;
+  }
+  .banker-img-wrap.happy .banker-mood-ring { border-color: rgba(74,222,128,0.4); }
+  .banker-img-wrap.neutral .banker-mood-ring { border-color: rgba(201,168,76,0.3); }
+  .banker-img-wrap.angry .banker-mood-ring { border-color: rgba(248,113,113,0.4); }
+
+  @keyframes moodPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.04)} }
+
+  .banker-name {
+    font-family: 'Syne', sans-serif; font-weight: 900; font-size: 1.4rem;
+    color: var(--banker); letter-spacing: 0.05em; margin-bottom: 4px;
+  }
+
+  /* Speech bubble */
+  .speech-bubble {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px 20px;
+    font-size: 0.9rem; line-height: 1.6; color: var(--text);
+    max-width: 420px; text-align: center; position: relative;
+    margin-top: 8px;
+    transition: all 0.4s;
+  }
+  .speech-bubble::before {
+    content: ''; position: absolute; top: -9px; left: 50%; transform: translateX(-50%);
+    border-left: 9px solid transparent; border-right: 9px solid transparent;
+    border-bottom: 9px solid var(--border);
+  }
+  .speech-bubble::after {
+    content: ''; position: absolute; top: -7px; left: 50%; transform: translateX(-50%);
+    border-left: 8px solid transparent; border-right: 8px solid transparent;
+    border-bottom: 8px solid var(--surface2);
+  }
+
+  /* ── TRUST METER ── */
+  .trust-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px; margin-bottom: 16px;
+  }
+  .trust-label {
+    font-family: 'Syne', sans-serif; font-size: 0.68rem; font-weight: 700;
+    letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;
+  }
+  .trust-score-text {
+    font-family: 'DM Mono', monospace; font-size: 0.88rem;
+  }
+  .trust-bar-bg {
+    height: 10px; background: rgba(255,255,255,0.05);
+    border-radius: 99px; overflow: hidden; margin-bottom: 8px;
+  }
+  .trust-bar-fill {
+    height: 100%; border-radius: 99px;
+    transition: width 0.8s cubic-bezier(0.16,1,0.3,1), background 0.5s;
+    background: linear-gradient(90deg, #f87171, #fb923c, #facc15, #4ade80);
+    background-size: 400% 100%;
+  }
+  .trust-limits {
+    display: flex; justify-content: space-between;
+    font-size: 0.72rem; color: var(--muted);
+  }
+  .max-loan-badge {
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    color: var(--banker); font-size: 0.88rem;
+  }
+
+  /* ── LOAN PANEL ── */
+  .loan-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px; margin-bottom: 16px;
+    position: relative; overflow: hidden;
+  }
+  .loan-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--banker), transparent);
+    opacity: 0.5;
+  }
+  .loan-card-title {
+    font-family: 'Syne', sans-serif; font-weight: 800; font-size: 0.95rem;
+    letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px;
+    color: var(--text);
+  }
+  .loan-card-sub { font-size: 0.8rem; color: var(--muted); margin-bottom: 20px; }
+
+  /* Active loan display */
+  .active-loan {
+    background: linear-gradient(135deg, rgba(201,168,76,0.08), rgba(255,140,0,0.05));
+    border: 1px solid rgba(201,168,76,0.25); border-radius: 12px;
+    padding: 18px 20px;
+  }
+  .active-loan-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 0; font-size: 0.85rem;
+  }
+  .active-loan-row span:first-child { color: var(--muted); }
+  .active-loan-row span:last-child { font-family: 'DM Mono', monospace; font-weight: 500; }
+  .active-loan-divider { height: 1px; background: var(--border); margin: 8px 0; }
+
+  .owed-amount {
+    font-family: 'Syne', sans-serif; font-weight: 900;
+    font-size: 1.5rem; color: var(--error);
+    text-align: center; margin: 12px 0 4px;
+  }
+  .owed-label { text-align: center; font-size: 0.75rem; color: var(--muted); margin-bottom: 16px; }
+
+  /* Repay input */
+  .repay-row { display: flex; gap: 8px; margin-top: 14px; }
+  .repay-input {
+    flex: 1; padding: 11px 14px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 0.9rem;
+    outline: none; transition: border-color 0.2s;
+  }
+  .repay-input:focus { border-color: var(--success); box-shadow: 0 0 0 3px rgba(74,222,128,0.08); }
+  .repay-input::placeholder { color: var(--muted); }
+  .repay-btn {
+    padding: 11px 20px; border: none; border-radius: 10px;
+    background: linear-gradient(135deg, rgba(74,222,128,0.18), rgba(34,197,94,0.1));
+    border: 1px solid rgba(74,222,128,0.35);
+    color: var(--success); font-family: 'Syne', sans-serif;
+    font-weight: 800; font-size: 0.8rem; letter-spacing: 0.08em;
+    text-transform: uppercase; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+  }
+  .repay-btn:hover { background: linear-gradient(135deg, rgba(74,222,128,0.28), rgba(34,197,94,0.18)); border-color: var(--success); }
+  .repay-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Borrow form */
+  .borrow-form { }
+  .amount-label {
+    font-family: 'Syne', sans-serif; font-size: 0.68rem; font-weight: 700;
+    letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 10px; display: block;
+  }
+  .amount-presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
+  .preset-btn {
+    padding: 8px 4px; background: transparent;
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--muted); font-family: 'Syne', sans-serif;
+    font-size: 0.76rem; font-weight: 700; cursor: pointer; transition: all 0.2s;
+    text-align: center;
+  }
+  .preset-btn:hover:not(:disabled) { border-color: var(--banker); color: var(--banker); }
+  .preset-btn.active { background: rgba(201,168,76,0.12); border-color: var(--banker); color: var(--banker); }
+  .preset-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .borrow-input-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .borrow-input {
+    flex: 1; padding: 12px 14px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 0.95rem;
+    outline: none; transition: border-color 0.2s;
+  }
+  .borrow-input:focus { border-color: var(--banker); box-shadow: 0 0 0 3px var(--banker-glow); }
+  .borrow-input::placeholder { color: var(--muted); }
+
+  .repayment-preview {
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px; margin-bottom: 14px;
+    font-size: 0.82rem;
+  }
+  .repay-row-preview { display: flex; justify-content: space-between; padding: 3px 0; }
+  .repay-row-preview span:first-child { color: var(--muted); }
+  .repay-row-preview span:last-child { font-family: 'DM Mono', monospace; }
+  .repay-row-preview.total span:last-child { color: var(--error); font-weight: 700; font-size: 0.9rem; }
+
+  .borrow-btn {
+    width: 100%; padding: 14px;
+    background: linear-gradient(135deg, var(--banker), #a87c2a);
+    border: none; border-radius: 12px;
+    color: #000; font-family: 'Syne', sans-serif;
+    font-weight: 900; font-size: 0.9rem; letter-spacing: 0.1em;
+    text-transform: uppercase; cursor: pointer;
+    transition: opacity 0.2s, transform 0.2s;
+  }
+  .borrow-btn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+  .borrow-btn:active { transform: translateY(0); }
+  .borrow-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+  .loan-msg {
+    font-size: 0.82rem; min-height: 20px; padding: 4px 0;
+    transition: color 0.2s; text-align: center;
+  }
+  .loan-msg.ok { color: var(--success); }
+  .loan-msg.err { color: var(--error); }
+
+  /* Loan history */
+  .history-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px;
+  }
+  .history-title {
+    font-family: 'Syne', sans-serif; font-size: 0.7rem; font-weight: 700;
+    letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .history-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.82rem;
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-item-left { color: var(--muted); }
+  .history-item-left strong { color: var(--text); display: block; font-size: 0.88rem; }
+  .history-badge {
+    font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 20px;
+    font-family: 'Syne', sans-serif; letter-spacing: 0.05em;
+  }
+  .badge-paid { background: rgba(74,222,128,0.1); color: var(--success); border: 1px solid rgba(74,222,128,0.25); }
+  .badge-active { background: rgba(201,168,76,0.1); color: var(--banker); border: 1px solid rgba(201,168,76,0.25); }
+  .history-empty { text-align: center; color: var(--muted); font-size: 0.82rem; padding: 16px 0; }
+
+  /* Login prompt */
+  .login-prompt {
+    display: none; position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
+    align-items: center; justify-content: center;
+  }
+  .login-prompt.active { display: flex; }
+  .login-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 18px; padding: 40px; text-align: center; max-width: 360px;
+  }
+  .login-box h2 { font-family: 'Syne', sans-serif; font-weight: 800; margin-bottom: 10px; }
+  .login-box p { color: var(--muted); font-size: 0.88rem; margin-bottom: 24px; }
+  .login-link {
+    display: inline-block; padding: 12px 28px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px; color: #000; font-family: 'Syne', sans-serif;
+    font-weight: 800; text-decoration: none; font-size: 0.85rem;
+  }
+
+  .spinner {
+    width: 18px; height: 18px; border: 2px solid rgba(0,0,0,0.3);
+    border-top-color: #000; border-radius: 50%;
+    animation: spin 0.7s linear infinite; display: inline-block; vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .loan-card, .trust-card, .history-card { animation: slideUp 0.5s cubic-bezier(0.16,1,0.3,1) both; }
+  .trust-card { animation-delay: 0.05s; }
+  .loan-card { animation-delay: 0.1s; }
+  .history-card { animation-delay: 0.15s; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <a class="back-btn" href="index.html">← Back</a>
+  <div class="header-title">The Banker</div>
+  <div class="pb-display">
+    <span class="pb-val" id="pbDisplay">—</span>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- Banker character -->
+  <div class="banker-scene">
+    <div class="banker-img-wrap neutral" id="bankerWrap">
+      <div class="banker-mood-ring"></div>
+      <img src="banker.png" alt="The Banker" id="bankerImg">
+    </div>
+    <div class="banker-name">Mr. Pemberton</div>
+    <div class="speech-bubble" id="speechBubble">
+      Ah, a visitor. Let me take a look at your file…
+    </div>
+  </div>
+
+  <!-- Trust meter -->
+  <div class="trust-card">
+    <div class="trust-label">
+      <span>Creditworthiness</span>
+      <span class="trust-score-text" id="trustScoreText">—</span>
+    </div>
+    <div class="trust-bar-bg">
+      <div class="trust-bar-fill" id="trustBar" style="width:0%"></div>
+    </div>
+    <div class="trust-limits">
+      <span>No credit</span>
+      <span>Max loan: <span class="max-loan-badge" id="maxLoanDisplay">—</span></span>
+    </div>
+  </div>
+
+  <!-- Loan card -->
+  <div class="loan-card" id="loanCard">
+    <div class="loan-card-title" id="loanCardTitle">Current Loan</div>
+    <div class="loan-card-sub" id="loanCardSub">Loading your account…</div>
+    <div id="loanContent"></div>
+    <div class="loan-msg" id="loanMsg"></div>
+  </div>
+
+  <!-- History -->
+  <div class="history-card" id="historyCard">
+    <div class="history-title">📋 Loan History</div>
+    <div id="historyList"><div class="history-empty">No past loans</div></div>
+  </div>
+
+</div>
+
+<!-- Login prompt -->
+<div class="login-prompt" id="loginPrompt">
+  <div class="login-box">
+    <h2>Sign in to borrow</h2>
+    <p>You need a Pam's Casino account to access The Banker.</p>
+    <a class="login-link" href="index.html">Sign In →</a>
+  </div>
+</div>
+
+<script>
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let userPB = 0;
+let loanData = null; // { active: {amount, owed, takenAt}, history: [{amount, owed, paidAt, takenAt}] }
+let trustScore = 0;
+let maxLoan = 0;
+
+const MAX_POSSIBLE_LOAN = 100000;
+const REPAY_MULTIPLIER = 2.5; // pay back 250% (take 10k, pay 25k)
+
+// ── BANKER DIALOGUE ──────────────────────────────────────────
+const DIALOGUES = {
+  loading: "Ah, a visitor. Let me pull up your file…",
+  noHistory: "You're new around here. I can offer a modest line of credit to start.",
+  trusted: "Always a pleasure. Your account speaks for itself — I'm happy to help.",
+  veryTrusted: "My best client! Whatever you need, consider it done.",
+  risky: "Hmm. Your finances have seen better days. I can only offer a little.",
+  broke: "I'm sorry, but I simply cannot extend credit to someone in your position.",
+  hasLoan: "You still have an outstanding balance with me. Pay it off first.",
+  justPaid: "Excellent! Prompt repayment. You've earned my trust.",
+  borrowSuccess: "Pleasure doing business. Don't make me regret this.",
+  repayPartial: "Every bit helps. Keep it coming.",
+  repayFull: "Paid in full! I knew you were good for it.",
+  notEnough: "You don't have enough to make that payment.",
+  tooMuch: "That exceeds what you owe me.",
+};
+
+function setBankerMood(mood, text) {
+  const wrap = document.getElementById('bankerWrap');
+  wrap.className = 'banker-img-wrap ' + mood;
+  document.getElementById('speechBubble').textContent = text;
+}
+
+// ── TRUST CALCULATION ─────────────────────────────────────────
+// Factors: current balance vs starting (100 PB), loan repayment history, balance growth
+function calcTrust(user, loanHistory) {
+  const pb = user.pam_bucks ?? 0;
+  const startingPB = 100;
+
+  // Balance score (0–60 pts): generous curve so normal players can reach high loans
+  // 100 PB = 0, 500 PB = 15, 2000 PB = 30, 5000 PB = 45, 10000+ PB = 60
+  let balanceScore = 0;
+  if (pb <= startingPB) {
+    balanceScore = 0;
+  } else if (pb < 500) {
+    balanceScore = Math.round(((pb - startingPB) / (500 - startingPB)) * 15);
+  } else if (pb < 2000) {
+    balanceScore = 15 + Math.round(((pb - 500) / 1500) * 15);
+  } else if (pb < 5000) {
+    balanceScore = 30 + Math.round(((pb - 2000) / 3000) * 15);
+  } else if (pb < 10000) {
+    balanceScore = 45 + Math.round(((pb - 5000) / 5000) * 15);
+  } else {
+    balanceScore = 60;
+  }
+
+  // Repayment history bonus (0–40 pts): 1 paid loan = 20pts, 2+ = 40pts
+  const paid = loanHistory.filter(l => l.paidAt).length;
+  const repayScore = Math.min(40, paid * 20);
+
+  return Math.min(100, balanceScore + repayScore);
+}
+
+function trustToMaxLoan(score) {
+  // Linear scale: score 0–100 maps to 0–100,000 PB
+  if (score < 5) return 0;
+  return Math.round((score / 100) * 100000);
+}
+
+// ── RENDER ───────────────────────────────────────────────────
+function render() {
+  const pb = currentUser.pam_bucks ?? 0;
+  const history = loanData?.history || [];
+  const active = loanData?.active || null;
+
+  trustScore = calcTrust(currentUser, history);
+  maxLoan = trustToMaxLoan(trustScore);
+
+  // Trust bar
+  document.getElementById('trustBar').style.width = trustScore + '%';
+  document.getElementById('trustBar').style.backgroundPosition = (100 - trustScore) + '% 0';
+  document.getElementById('trustScoreText').textContent = trustScore + ' / 100';
+  document.getElementById('maxLoanDisplay').textContent = maxLoan.toLocaleString() + ' PB';
+
+  // Banker mood & speech
+  if (active) {
+    setBankerMood('neutral', DIALOGUES.hasLoan);
+  } else if (trustScore >= 80) {
+    setBankerMood('happy', DIALOGUES.veryTrusted);
+  } else if (trustScore >= 50) {
+    setBankerMood('happy', DIALOGUES.trusted);
+  } else if (trustScore < 10) {
+    setBankerMood('angry', DIALOGUES.broke);
+  } else if (trustScore < 30) {
+    setBankerMood('angry', DIALOGUES.risky);
+  } else {
+    setBankerMood('neutral', DIALOGUES.noHistory);
+  }
+
+  // Loan card
+  if (active) {
+    renderActiveLoan(active, pb);
+  } else {
+    renderBorrowForm(pb);
+  }
+
+  // History
+  renderHistory(history);
+}
+
+function renderActiveLoan(active, pb) {
+  document.getElementById('loanCardTitle').textContent = 'Outstanding Loan';
+  document.getElementById('loanCardSub').textContent = 'Pay off your balance to become eligible for another loan.';
+
+  const takenDate = new Date(active.takenAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  document.getElementById('loanContent').innerHTML = `
+    <div class="active-loan">
+      <div class="active-loan-row">
+        <span>Original amount</span>
+        <span>${active.amount.toLocaleString()} PB</span>
+      </div>
+      <div class="active-loan-row">
+        <span>Taken on</span>
+        <span>${takenDate}</span>
+      </div>
+      <div class="active-loan-divider"></div>
+      <div class="owed-amount">${active.owed.toLocaleString()} PB</div>
+      <div class="owed-label">remaining to pay back</div>
+      <div class="repay-row">
+        <input class="repay-input" id="repayInput" type="number" min="1" max="${active.owed}" placeholder="Amount to repay…">
+        <button class="repay-btn" onclick="doRepay()">Pay Back</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <button class="preset-btn" style="flex:1" onclick="setRepayPreset(Math.floor(${active.owed} * 0.25))">25%</button>
+        <button class="preset-btn" style="flex:1" onclick="setRepayPreset(Math.floor(${active.owed} * 0.5))">50%</button>
+        <button class="preset-btn" style="flex:1" onclick="setRepayPreset(${active.owed})">All</button>
+      </div>
+    </div>
+  `;
+}
+
+function setRepayPreset(amt) {
+  const inp = document.getElementById('repayInput');
+  if (inp) inp.value = amt;
+}
+
+function renderBorrowForm(pb) {
+  document.getElementById('loanCardTitle').textContent = maxLoan > 0 ? 'Take Out a Loan' : 'No Credit Available';
+  document.getElementById('loanCardSub').textContent = maxLoan > 0
+    ? `You can borrow up to ${maxLoan.toLocaleString()} PB. Repayment is ${Math.round(REPAY_MULTIPLIER * 100)}% of the borrowed amount.`
+    : 'Build your balance and pay back loans to improve your credit.';
+
+  if (maxLoan <= 0) {
+    document.getElementById('loanContent').innerHTML = `
+      <div style="text-align:center;padding:24px;color:var(--muted);font-size:0.85rem;">
+        Mr. Pemberton shakes his head.<br>
+        <span style="font-size:0.78rem;opacity:0.7">Grow your balance to unlock credit.</span>
+      </div>`;
+    return;
+  }
+
+  const presets = [500, 1000, 5000, 10000, 25000, 50000, 100000].filter(p => p <= maxLoan);
+  // Show up to 4 presets
+  const shown = presets.slice(-4);
+
+  document.getElementById('loanContent').innerHTML = `
+    <div class="borrow-form">
+      <label class="amount-label">Loan Amount</label>
+      <div class="amount-presets" id="presetBtns">
+        ${shown.map(p => `<button class="preset-btn" onclick="setLoanPreset(${p})">${p >= 1000 ? (p/1000)+'K' : p}</button>`).join('')}
+      </div>
+      <div class="borrow-input-row">
+        <input class="borrow-input" id="borrowInput" type="number" min="1" max="${maxLoan}" placeholder="Enter amount…" oninput="updatePreview()">
+      </div>
+      <div class="repayment-preview" id="repayPreview">
+        <div class="repay-row-preview"><span>You receive</span><span id="prevReceive">—</span></div>
+        <div class="repay-row-preview"><span>Interest (${Math.round((REPAY_MULTIPLIER - 1) * 100)}%)</span><span id="prevInterest">—</span></div>
+        <div class="repay-row-preview total"><span>Total to repay</span><span id="prevTotal">—</span></div>
+      </div>
+      <button class="borrow-btn" id="borrowBtn" onclick="doBorrow()" disabled>MAKE DEAL 🤝</button>
+    </div>
+  `;
+}
+
+function setLoanPreset(amt) {
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  const inp = document.getElementById('borrowInput');
+  if (inp) { inp.value = amt; updatePreview(); }
+}
+
+function updatePreview() {
+  const inp = document.getElementById('borrowInput');
+  const val = parseInt(inp?.value);
+  const btn = document.getElementById('borrowBtn');
+
+  if (!val || val < 1 || val > maxLoan) {
+    document.getElementById('prevReceive').textContent = '—';
+    document.getElementById('prevInterest').textContent = '—';
+    document.getElementById('prevTotal').textContent = '—';
+    if (btn) btn.disabled = true;
+    return;
+  }
+
+  const total = Math.round(val * REPAY_MULTIPLIER);
+  const interest = total - val;
+  document.getElementById('prevReceive').textContent = val.toLocaleString() + ' PB';
+  document.getElementById('prevInterest').textContent = '+' + interest.toLocaleString() + ' PB';
+  document.getElementById('prevTotal').textContent = total.toLocaleString() + ' PB';
+  if (btn) btn.disabled = false;
+}
+
+function renderHistory(history) {
+  const list = document.getElementById('historyList');
+  if (!history.length) {
+    list.innerHTML = '<div class="history-empty">No past loans</div>';
+    return;
+  }
+  list.innerHTML = [...history].reverse().map(h => {
+    const taken = new Date(h.takenAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const paid = h.paidAt ? new Date(h.paidAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null;
+    return `
+      <div class="history-item">
+        <div class="history-item-left">
+          <strong>${h.amount.toLocaleString()} PB borrowed</strong>
+          ${paid ? `Repaid ${h.repaid?.toLocaleString() || h.owed?.toLocaleString()} PB · ${paid}` : `Taken ${taken}`}
+        </div>
+        <span class="history-badge ${paid ? 'badge-paid' : 'badge-active'}">${paid ? '✓ Paid' : 'Active'}</span>
+      </div>`;
+  }).join('');
+}
+
+// ── ACTIONS ──────────────────────────────────────────────────
+async function doBorrow() {
+  const inp = document.getElementById('borrowInput');
+  const amount = parseInt(inp?.value);
+  const msg = document.getElementById('loanMsg');
+
+  if (!amount || amount < 1) { setMsg('Enter an amount.', 'err'); return; }
+  if (amount > maxLoan) { setMsg(`Max loan is ${maxLoan.toLocaleString()} PB.`, 'err'); return; }
+  if (loanData?.active) { setMsg('Pay off your current loan first.', 'err'); return; }
+
+  const btn = document.getElementById('borrowBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner" style="border-top-color:#000"></span>';
+
+  const owed = Math.round(amount * REPAY_MULTIPLIER);
+  const newActive = { amount, owed, takenAt: new Date().toISOString() };
+
+  if (!loanData) loanData = { active: null, history: [] };
+  loanData.active = newActive;
+  // Also add to history as active entry
+  loanData.history.push({ amount, owed, takenAt: newActive.takenAt, paidAt: null, repaid: 0 });
+
+  const newPB = (currentUser.pam_bucks ?? 0) + amount;
+
+  const { error } = await db.from('users').update({
+    pam_bucks: newPB,
+    warning_message: serializeUserData(currentUser.warning_message, loanData)
+  }).eq('id', currentUser.id);
+
+  btn.disabled = false;
+  btn.textContent = 'MAKE DEAL 🤝';
+
+  if (error) {
+    // rollback
+    loanData.active = null;
+    loanData.history.pop();
+    setMsg('Something went wrong. Try again.', 'err');
+    return;
+  }
+
+  currentUser.pam_bucks = newPB;
+  currentUser.warning_message = serializeUserData(currentUser.warning_message, loanData);
+  userPB = newPB;
+  updatePBDisplay();
+  setBankerMood('happy', DIALOGUES.borrowSuccess);
+  setMsg(`+${amount.toLocaleString()} PB received! Repay ${owed.toLocaleString()} PB when you're ready.`, 'ok');
+  render();
+}
+
+async function doRepay() {
+  const inp = document.getElementById('repayInput');
+  const amount = parseInt(inp?.value);
+  const active = loanData?.active;
+  const msg = document.getElementById('loanMsg');
+
+  if (!active) return;
+  if (!amount || amount < 1) { setMsg('Enter an amount to repay.', 'err'); return; }
+  if (amount > (currentUser.pam_bucks ?? 0)) { setMsg("You don't have enough PB.", 'err'); return; }
+  if (amount > active.owed) { setMsg(`You only owe ${active.owed.toLocaleString()} PB.`, 'err'); return; }
+
+  const btn = document.querySelector('.repay-btn');
+  btn.disabled = true;
+  btn.textContent = '…';
+
+  const newOwed = active.owed - amount;
+  const newPB = (currentUser.pam_bucks ?? 0) - amount;
+  const fullRepay = newOwed <= 0;
+
+  // Update history entry
+  const histEntry = loanData.history.find(h => h.takenAt === active.takenAt);
+  if (histEntry) {
+    histEntry.repaid = (histEntry.repaid || 0) + amount;
+    histEntry.owed = newOwed;
+    if (fullRepay) histEntry.paidAt = new Date().toISOString();
+  }
+
+  if (fullRepay) {
+    loanData.active = null;
+  } else {
+    loanData.active.owed = newOwed;
+  }
+
+  const { error } = await db.from('users').update({
+    pam_bucks: newPB,
+    warning_message: serializeUserData(currentUser.warning_message, loanData)
+  }).eq('id', currentUser.id);
+
+  btn.disabled = false;
+  btn.textContent = 'Pay Back';
+
+  if (error) {
+    setMsg('Payment failed. Try again.', 'err');
+    // rollback
+    if (histEntry) { histEntry.repaid -= amount; histEntry.owed += amount; if (fullRepay) histEntry.paidAt = null; }
+    loanData.active = fullRepay ? active : loanData.active;
+    if (!fullRepay) loanData.active.owed = active.owed;
+    return;
+  }
+
+  currentUser.pam_bucks = newPB;
+  currentUser.warning_message = serializeUserData(currentUser.warning_message, loanData);
+  userPB = newPB;
+  updatePBDisplay();
+
+  if (fullRepay) {
+    setBankerMood('happy', DIALOGUES.repayFull);
+    setMsg('Loan fully paid off! Your credit score has improved.', 'ok');
+  } else {
+    setBankerMood('neutral', DIALOGUES.repayPartial);
+    setMsg(`Payment received. ${newOwed.toLocaleString()} PB remaining.`, 'ok');
+  }
+
+  render();
+}
+
+// ── HELPERS ──────────────────────────────────────────────────
+function setMsg(text, type) {
+  const el = document.getElementById('loanMsg');
+  el.textContent = text;
+  el.className = 'loan-msg ' + type;
+  setTimeout(() => { el.textContent = ''; el.className = 'loan-msg'; }, 5000);
+}
+
+function updatePBDisplay() {
+  document.getElementById('pbDisplay').textContent = userPB.toLocaleString() + ' PB';
+}
+
+// ── DATA HELPERS (piggyback on warning_message, no new columns) ──────────
+function parseUserData(warning_message) {
+  if (!warning_message) return { messages: [], loan: null };
+  try {
+    const parsed = JSON.parse(warning_message);
+    if (parsed && !Array.isArray(parsed) && parsed.messages !== undefined) {
+      return { messages: parsed.messages || [], loan: parsed.loan || null };
+    }
+    if (Array.isArray(parsed)) return { messages: parsed, loan: null };
+  } catch(e) {}
+  return { messages: [{ type: 'warning', text: warning_message, id: 'legacy', ts: null }], loan: null };
+}
+
+function serializeUserData(current_warning_message, newLoanData) {
+  const existing = parseUserData(current_warning_message);
+  return JSON.stringify({ messages: existing.messages, loan: newLoanData });
+}
+
+// ── BACKGROUND MUSIC ─────────────────────────────────────────
+const bgMusic = new Audio('audio/banker.mp3');
+bgMusic.loop = true;
+bgMusic.volume = 0.5;
+
+// Autoplay requires a user gesture in most browsers; try immediately
+// and fall back to playing on first interaction if blocked.
+bgMusic.play().catch(() => {
+  const startMusic = () => {
+    bgMusic.play();
+    document.removeEventListener('click', startMusic);
+    document.removeEventListener('keydown', startMusic);
+  };
+  document.addEventListener('click', startMusic);
+  document.addEventListener('keydown', startMusic);
+});
+
+// ── INIT ─────────────────────────────────────────────────────
+window.onload = async () => {
+  const saved = localStorage.getItem('vault_session');
+  if (!saved) { document.getElementById('loginPrompt').classList.add('active'); return; }
+
+  const { username } = JSON.parse(saved);
+  const { data, error } = await db.from('users').select('*').eq('username', username).single();
+  if (error || !data) { document.getElementById('loginPrompt').classList.add('active'); return; }
+
+  if (data.status === 'terminated') {
+    document.getElementById('loginPrompt').classList.add('active');
+    document.querySelector('.login-box h2').textContent = 'Account Terminated';
+    document.querySelector('.login-box p').textContent = 'Your account cannot access The Banker.';
+    document.querySelector('.login-link').style.display = 'none';
+    return;
+  }
+
+  currentUser = data;
+  userPB = data.pam_bucks ?? 0;
+  updatePBDisplay();
+
+  // Parse loan data from warning_message wrapper (no extra columns needed)
+  const wm = parseUserData(data.warning_message);
+  loanData = wm.loan || { active: null, history: [] };
+
+  render();
+};
+</script>
+</body>
+</html>

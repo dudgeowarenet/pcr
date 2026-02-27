@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Plinko — Pam's Casino</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>
+  :root {
+    --bg: #0a0900;
+    --surface: #12100a;
+    --border: #2a2310;
+    --accent: #FFD700;
+    --accent2: #ff8c00;
+    --text: #f0ead8;
+    --muted: #7a6a40;
+    --success: #4ade80;
+    --error: #f87171;
+    --pin: #c8bfa0;
+    --ball: #ff2233;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 50% 0%, rgba(255,215,0,0.07) 0%, transparent 55%),
+      radial-gradient(ellipse 40% 60% at 10% 80%, rgba(255,60,0,0.04) 0%, transparent 50%);
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 24px;
+    background: rgba(10,9,0,0.9);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+    z-index: 10; flex-shrink: 0;
+  }
+
+  .back-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: transparent; border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 14px;
+    color: var(--muted); font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem; cursor: pointer; transition: all 0.2s;
+    text-decoration: none;
+  }
+  .back-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .header-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 900; font-size: 1.2rem;
+    letter-spacing: 0.15em; text-transform: uppercase;
+  }
+  .header-title span {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .pb-display {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255,215,0,0.07);
+    border: 1px solid rgba(255,215,0,0.2);
+    border-radius: 8px; padding: 7px 14px;
+  }
+  .pb-display .pb-label { font-size: 0.72rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+  .pb-display .pb-val { font-family: 'Syne', sans-serif; font-weight: 800; color: var(--accent); font-size: 1rem; }
+
+  /* ── MAIN LAYOUT ── */
+  .game-wrap {
+    display: flex; flex: 1; overflow: hidden;
+    position: relative; z-index: 1;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 220px; flex-shrink: 0;
+    background: rgba(18,16,10,0.95);
+    border-right: 1px solid var(--border);
+    padding: 20px 16px;
+    display: flex; flex-direction: column; gap: 16px;
+    overflow-y: auto;
+    touch-action: pan-y;
+  }
+
+  .sidebar-section {
+    background: rgba(255,215,0,0.03);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px;
+  }
+
+  .sidebar-label {
+    font-size: 0.68rem; font-family: 'Syne', sans-serif;
+    font-weight: 700; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .bet-options { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+  .bet-opt {
+    padding: 7px 4px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 6px;
+    color: var(--muted); font-family: 'DM Mono', monospace;
+    font-size: 0.8rem; cursor: pointer; text-align: center;
+    transition: all 0.15s; font-weight: 500;
+  }
+  .bet-opt:hover { border-color: var(--accent); color: var(--accent); }
+  .bet-opt.active { background: rgba(255,215,0,0.12); border-color: var(--accent); color: var(--accent); }
+
+  .bet-custom {
+    width: 100%; padding: 9px 12px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 0.9rem;
+    outline: none; transition: border-color 0.2s; text-align: center;
+  }
+  .bet-custom:focus { border-color: var(--accent); }
+
+  .drop-btn {
+    width: 100%; padding: 13px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; border-radius: 10px;
+    color: #000; font-family: 'Syne', sans-serif;
+    font-weight: 900; font-size: 0.9rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .drop-btn:hover { opacity: 0.88; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(255,215,0,0.25); }
+  .drop-btn:active { transform: translateY(0); }
+  .drop-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  /* History */
+  .history-list { display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow-y: auto; }
+  .history-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 8px; border-radius: 6px;
+    font-size: 0.78rem; animation: histIn 0.3s ease;
+  }
+  @keyframes histIn { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
+  .history-item.win { background: rgba(74,222,128,0.08); }
+  .history-item.loss { background: rgba(248,113,113,0.06); }
+  .history-item.push { background: rgba(255,215,0,0.06); }
+  .hist-mult { font-family: 'DM Mono', monospace; font-weight: 500; }
+  .hist-amt { font-family: 'DM Mono', monospace; font-weight: 700; }
+  .hist-amt.pos { color: var(--success); }
+  .hist-amt.neg { color: var(--error); }
+  .hist-amt.neu { color: var(--muted); }
+
+  /* ── CANVAS AREA ── */
+  .canvas-wrap {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+    background: var(--bg);
+  }
+
+  .canvas-scaler {
+    position: relative;
+    width: 500px;
+    height: 680px;
+    flex-shrink: 0;
+  }
+
+  canvas {
+    display: block;
+    width: 500px;
+    height: 680px;
+    border-left: 1px solid var(--border);
+    touch-action: none;
+  }
+
+  /* Result flash */
+  .result-flash {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Syne', sans-serif; font-weight: 900;
+    font-size: 3rem; pointer-events: none;
+    opacity: 0; transition: opacity 0.1s;
+    text-shadow: 0 0 40px currentColor;
+    white-space: nowrap;
+    z-index: 5;
+  }
+  .result-flash.show { animation: flashAnim 1.4s ease forwards; }
+  @keyframes flashAnim {
+    0%   { opacity: 0; transform: translate(-50%,-50%) scale(0.6); }
+    15%  { opacity: 1; transform: translate(-50%,-50%) scale(1.1); }
+    70%  { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%,-50%) scale(0.9); }
+  }
+
+  /* Login prompt */
+  .login-prompt {
+    position: absolute; inset: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(10,9,0,0.85); backdrop-filter: blur(4px);
+  }
+  .login-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 32px; text-align: center; max-width: 320px;
+  }
+  .login-box h2 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.3rem; margin-bottom: 8px; }
+  .login-box p { color: var(--muted); font-size: 0.88rem; margin-bottom: 20px; line-height: 1.6; }
+  .login-link {
+    display: inline-block; padding: 12px 28px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px; color: #000;
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 0.85rem; letter-spacing: 0.1em;
+    text-transform: uppercase; text-decoration: none;
+    transition: opacity 0.2s;
+  }
+  .login-link:hover { opacity: 0.85; }
+
+  /* Duplicate tab overlay */
+  .duptab-overlay {
+    position: fixed; inset: 0; z-index: 999;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(10,9,0,0.95); backdrop-filter: blur(6px);
+  }
+  .duptab-overlay.active { display: flex; }
+  .duptab-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 36px 32px; text-align: center; max-width: 340px;
+  }
+  .duptab-box .duptab-icon { font-size: 2.5rem; margin-bottom: 12px; }
+  .duptab-box h2 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.25rem; margin-bottom: 10px; color: var(--error); }
+  .duptab-box p { color: var(--muted); font-size: 0.86rem; line-height: 1.65; margin-bottom: 20px; }
+  .duptab-claim-btn {
+    padding: 11px 28px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; border-radius: 10px; color: #000;
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 0.85rem; letter-spacing: 0.08em;
+    text-transform: uppercase; cursor: pointer; transition: opacity 0.2s;
+  }
+  .duptab-claim-btn:hover { opacity: 0.85; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  @media (max-width: 560px) {
+    .sidebar { width: 160px; padding: 12px 10px; }
+    .bet-options { grid-template-columns: 1fr 1fr; gap: 4px; }
+    .bet-opt { font-size: 0.72rem; padding: 6px 2px; }
+    .drop-btn { font-size: 0.8rem; padding: 11px; }
+  }
+  @media (max-width: 420px) {
+    .sidebar { width: 130px; padding: 10px 8px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Duplicate tab overlay -->
+<div class="duptab-overlay" id="dupTabOverlay">
+  <div class="duptab-box">
+    <div class="duptab-icon">🚫</div>
+    <h2>Multiple Sessions Detected</h2>
+    <p>Plinko is already open in another tab or window. Only one session is allowed at a time to prevent balance issues.</p>
+    <button class="duptab-claim-btn" id="dupClaimBtn">Use This Tab</button>
+  </div>
+</div>
+
+<div class="header">
+  <a class="back-btn" href="index.html">← Back</a>
+  <div class="header-title">🎰 <span>Plinko</span></div>
+  <div class="pb-display">
+    <span class="pb-label">💰</span>
+    <span class="pb-val" id="pbDisplay">—</span>
+  </div>
+</div>
+
+<div class="game-wrap">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Bet Amount (PB)</div>
+      <div class="bet-options">
+        <div class="bet-opt active" onclick="setBet(50)">50</div>
+        <div class="bet-opt" onclick="setBet(100)">100</div>
+        <div class="bet-opt" onclick="setBet(250)">250</div>
+        <div class="bet-opt" onclick="setBet(500)">500</div>
+        <div class="bet-opt" onclick="setBet(1000)">1K</div>
+        <div class="bet-opt" onclick="setBet(5000)">5K</div>
+      </div>
+      <input class="bet-custom" id="betInput" type="number" value="50" min="1" placeholder="Custom bet…" oninput="onCustomBet()">
+    </div>
+
+    <button class="drop-btn" id="dropBtn" onclick="dropBall()">▼ Drop Ball</button>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Recent Drops</div>
+      <div class="history-list" id="historyList">
+        <div style="color:var(--muted);font-size:0.78rem;text-align:center;padding:8px;">No drops yet</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section" id="statBox">
+      <div class="sidebar-label">Session</div>
+      <div style="display:flex;justify-content:space-between;font-size:0.8rem;padding:3px 0;">
+        <span style="color:var(--muted)">Drops</span>
+        <span id="statDrops" style="font-family:'DM Mono',monospace">0</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:0.8rem;padding:3px 0;">
+        <span style="color:var(--muted)">Net P&L</span>
+        <span id="statPnl" style="font-family:'DM Mono',monospace;color:var(--muted)">0 PB</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CANVAS -->
+  <div class="canvas-wrap" id="canvasWrap">
+    <div class="canvas-scaler" id="canvasScaler">
+      <canvas id="plinkCanvas"></canvas>
+      <div class="result-flash" id="resultFlash"></div>
+
+      <!-- Login overlay (shown if not logged in) -->
+      <div class="login-prompt" id="loginPrompt" style="display:none">
+        <div class="login-box">
+          <h2>Sign in to play</h2>
+          <p>You need a Pam's Casino account to bet Pam Bucks on Plinko.</p>
+          <a class="login-link" href="index.html">Sign In →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Supabase ──────────────────────────────────────────────────
+
+// ── Sound System ──────────────────────────────────────────────
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let lastPingTime = 0;
+
+function resumeAudio() {
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playPing(freq = 800, duration = 0.06, vol = 0.12) {
+  // Throttle pings so they don't stack too hard
+  const now = audioCtx.currentTime;
+  if (now - lastPingTime < 0.04) return;
+  lastPingTime = now;
+
+  resumeAudio();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.frequency.setValueAtTime(freq, now);
+  osc.frequency.exponentialRampToValueAtTime(freq * 0.6, now + duration);
+  gain.gain.setValueAtTime(vol, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+  osc.start(now); osc.stop(now + duration);
+}
+
+function playWin(mult) {
+  resumeAudio();
+  // Ascending notes for win
+  const notes = mult >= 9 ? [523, 659, 784, 1047] : mult >= 2 ? [523, 659, 784] : [440, 523];
+  const vol = mult >= 9 ? 0.22 : 0.15;
+  notes.forEach((f, i) => {
+    setTimeout(() => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      const t = audioCtx.currentTime;
+      osc.frequency.setValueAtTime(f, t);
+      gain.gain.setValueAtTime(vol, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+      osc.start(t); osc.stop(t + 0.18);
+    }, i * 80);
+  });
+}
+
+function playLoss() {
+  resumeAudio();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sawtooth';
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  const t = audioCtx.currentTime;
+  osc.frequency.setValueAtTime(300, t);
+  osc.frequency.exponentialRampToValueAtTime(150, t + 0.25);
+  gain.gain.setValueAtTime(0.1, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+  osc.start(t); osc.stop(t + 0.25);
+}
+
+function playDrop() {
+  resumeAudio();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  const t = audioCtx.currentTime;
+  osc.frequency.setValueAtTime(600, t);
+  osc.frequency.exponentialRampToValueAtTime(900, t + 0.08);
+  gain.gain.setValueAtTime(0.1, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+  osc.start(t); osc.stop(t + 0.08);
+}
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let userPB = 0;
+
+// ── Multiplier buckets (17 slots = 16 gaps) ───────────────────
+const MULTIPLIERS = [16, 8, 4, 3, 1.4, 1.1, 1, 0.9, 0.5, 0.9, 1, 1.1, 1.4, 3, 4, 8, 16];
+const MULT_COLORS = [
+  '#ff1a1a','#ff4400','#ff7700','#ffaa00','#ffcc00',
+  '#ffe033','#ffee66','#FFD700','#aaaaaa',
+  '#FFD700','#ffee66','#ffe033','#ffcc00','#ffaa00','#ff7700','#ff4400','#ff1a1a'
+];
+
+// ── Canvas & physics setup ────────────────────────────────────
+const canvas = document.getElementById('plinkCanvas');
+const ctx = canvas.getContext('2d');
+
+const ROWS = 16;
+const PIN_RADIUS = 4;
+const BALL_RADIUS = 7;
+const GRAVITY = 0.28;
+const BOUNCE = 0.42;
+const FRICTION = 0.988;
+const SLOT_HEIGHT = 44;
+
+let W, H, pinSpacingX, pinSpacingY, startX, startY, slotY;
+let pins = [];
+let balls = [];
+let animId = null;
+
+// Session stats
+let sessionDrops = 0;
+let sessionPnl = 0;
+
+// ── Bet state ─────────────────────────────────────────────────
+let currentBet = 50;
+
+function setBet(amt) {
+  currentBet = amt;
+  document.getElementById('betInput').value = amt;
+  document.querySelectorAll('.bet-opt').forEach(el => {
+    el.classList.toggle('active', parseInt(el.textContent.replace('K','000')) === amt ||
+      (el.textContent === '1K' && amt === 1000) ||
+      (el.textContent === '5K' && amt === 5000));
+  });
+}
+
+function onCustomBet() {
+  const v = parseInt(document.getElementById('betInput').value);
+  if (!isNaN(v) && v > 0) {
+    currentBet = v;
+    document.querySelectorAll('.bet-opt').forEach(el => el.classList.remove('active'));
+  }
+}
+
+// ── Fixed canvas dimensions — never changes regardless of device ──
+const FIXED_W = 500;
+const FIXED_H = 680;
+
+// ── Layout ────────────────────────────────────────────────────
+function setupLayout() {
+  W = FIXED_W;
+  H = FIXED_H;
+  canvas.width = W;
+  canvas.height = H;
+
+  const boardW = W * 0.88;
+  const boardH = H - SLOT_HEIGHT - 20;
+
+  pinSpacingX = boardW / (ROWS + 1);
+  pinSpacingY = boardH / (ROWS + 1);
+  startX = (W - boardW) / 2 + pinSpacingX;
+  startY = 40;
+  slotY = H - SLOT_HEIGHT;
+
+  buildPins();
+  scaleCanvasToFit();
+}
+
+function scaleCanvasToFit() {
+  const wrap = document.getElementById('canvasWrap');
+  const scaler = document.getElementById('canvasScaler');
+  const availW = wrap.clientWidth - 2;
+  const availH = wrap.clientHeight - 2;
+  const scale = Math.min(availW / FIXED_W, availH / FIXED_H, 1);
+  scaler.style.transform = `scale(${scale})`;
+  scaler.style.transformOrigin = 'center center';
+}
+
+function buildPins() {
+  pins = [];
+  for (let row = 0; row < ROWS; row++) {
+    const count = row + 3;
+    const rowWidth = (count - 1) * pinSpacingX;
+    const ox = W / 2 - rowWidth / 2;
+    for (let col = 0; col < count; col++) {
+      pins.push({
+        x: ox + col * pinSpacingX,
+        y: startY + row * pinSpacingY
+      });
+    }
+  }
+}
+
+// ── Ball physics ──────────────────────────────────────────────
+function dropBall() {
+  if (!currentUser) return;
+  if (currentBet > userPB) {
+    showFlash('Not enough PB!', '#f87171'); return;
+  }
+  // Deduct bet immediately and persist — reload can't cancel the bet
+  userPB -= currentBet;
+  updatePBDisplay();
+  db.from('users').update({ pam_bucks: userPB }).eq('id', currentUser.id);
+  // Store current balance so reload detection can restore the correct post-bet amount
+  localStorage.setItem('plinko_pending_' + currentUser.id, userPB.toString());
+
+  // Slight random horizontal start
+  const spawnX = W / 2 + (Math.random() - 0.5) * pinSpacingX * 0.6;
+
+  const ball = {
+    x: spawnX,
+    y: startY - 30,
+    vx: (Math.random() - 0.5) * 0.8,
+    vy: 0,
+    radius: BALL_RADIUS,
+    landed: false,
+    slot: -1,
+    trail: [],
+    bet: currentBet,   // ← locked in at drop time — changing bet mid-flight has no effect
+  };
+
+  balls.push(ball);
+  playDrop();
+  if (!animId) animLoop();
+}
+
+function animLoop() {
+  animId = requestAnimationFrame(animLoop);
+  update();
+  draw();
+}
+
+function update() {
+  for (const ball of balls) {
+    if (ball.landed) continue;
+
+    ball.vy += GRAVITY;
+    ball.vx *= FRICTION;
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+
+    // Trail
+    ball.trail.push({ x: ball.x, y: ball.y });
+    if (ball.trail.length > 10) ball.trail.shift();
+
+    // Pin collisions
+    for (const pin of pins) {
+      const dx = ball.x - pin.x;
+      const dy = ball.y - pin.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const minDist = ball.radius + PIN_RADIUS + 1;
+
+      if (dist < minDist && dist > 0) {
+        const nx = dx / dist;
+        const ny = dy / dist;
+
+        // Push ball out
+        ball.x = pin.x + nx * minDist;
+        ball.y = pin.y + ny * minDist;
+
+        // Reflect velocity off pin
+        const dot = ball.vx * nx + ball.vy * ny;
+        ball.vx = (ball.vx - 2 * dot * nx) * BOUNCE;
+        ball.vy = (ball.vy - 2 * dot * ny) * BOUNCE;
+
+        // Two-tier nudge system:
+        // 97% of pin hits: strong center pull (0.80 bias) — ball stays near middle
+        //  3% of pin hits: wild bounce — no bias, ball can drift far out to edges
+        const centerBias = (ball.x - W / 2) / (W / 2);
+        let nudge;
+        if (Math.random() < 0.03) {
+          // Wild bounce — pure random, no center pull at all
+          // This is what allows rare 4x, 8x, 16x outcomes
+          nudge = (Math.random() - 0.5) * 1.8;
+        } else {
+          // Normal bounce — strong center pull keeps ball near middle
+          nudge = (Math.random() - 0.5 - centerBias * 0.80) * 0.9;
+        }
+        ball.vx += nudge;
+
+        // Always bounce downward tendency
+        if (ball.vy < 0.5) ball.vy = 0.5;
+
+        // Pin hit sound - pitch varies with row position
+        const rowFraction = (ball.y - startY) / (slotY - startY);
+        playPing(600 + rowFraction * 400, 0.06, 0.1);
+      }
+    }
+
+    // Wall bounce
+    if (ball.x - ball.radius < 0) {
+      ball.x = ball.radius;
+      ball.vx = Math.abs(ball.vx) * 0.6;
+    }
+    if (ball.x + ball.radius > W) {
+      ball.x = W - ball.radius;
+      ball.vx = -Math.abs(ball.vx) * 0.6;
+    }
+
+    // Landed in slot
+    if (ball.y >= slotY - ball.radius) {
+      ball.y = slotY - ball.radius;
+      ball.vy = 0; ball.vx = 0;
+      ball.landed = true;
+
+      // Determine which slot
+      const slotCount = MULTIPLIERS.length;
+      const slotWidth = W / slotCount;
+      let slotIdx = Math.floor(ball.x / slotWidth);
+      slotIdx = Math.max(0, Math.min(slotCount - 1, slotIdx));
+      ball.slot = slotIdx;
+
+      onBallLanded(ball, slotIdx);
+    }
+  }
+
+  // Remove old landed balls after delay
+  const now = Date.now();
+  balls = balls.filter(b => !b.landed || !b._landedAt || (now - b._landedAt < 2000));
+
+  if (balls.length === 0 && animId) {
+    cancelAnimationFrame(animId);
+    animId = null;
+  }
+}
+
+async function onBallLanded(ball, slotIdx) {
+  ball._landedAt = Date.now();
+  const mult = MULTIPLIERS[slotIdx];
+  const betAmt = ball.bet;           // ← use the bet that was locked in at drop time
+  const winAmt = Math.round(betAmt * mult);
+  const net = winAmt - betAmt;
+
+  // Update PB
+  userPB += winAmt;
+  updatePBDisplay();
+  sessionDrops++;
+  sessionPnl += net;
+  updateSessionStats();
+
+  // Flash result
+  const color = net > 0 ? '#4ade80' : net < 0 ? '#f87171' : '#FFD700';
+  const label = net >= 0 ? `+${winAmt} PB  ${mult}×` : `${net} PB  ${mult}×`;
+
+  // Play sound
+  if (net > 0) playWin(mult);
+  else if (net < 0) playLoss();
+  showFlash(label, color);
+
+  // Add to history
+  addHistory(mult, net, betAmt);
+
+  // Save to Supabase
+  await db.from('users').update({ pam_bucks: userPB }).eq('id', currentUser.id);
+  currentUser.pam_bucks = userPB;
+  // Clear the cheat-detection flag once a ball lands and winnings are saved
+  if (balls.filter(b => !b.landed).length === 0) {
+    localStorage.removeItem('plinko_pending_' + currentUser.id);
+  }
+
+}
+
+// ── Draw ──────────────────────────────────────────────────────
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Draw slot buckets
+  const slotCount = MULTIPLIERS.length;
+  const slotW = W / slotCount;
+  for (let i = 0; i < slotCount; i++) {
+    const x = i * slotW;
+    const col = MULT_COLORS[i];
+
+    // Slot background
+    ctx.fillStyle = col + '22';
+    ctx.fillRect(x + 1, slotY, slotW - 2, SLOT_HEIGHT);
+
+    // Slot border
+    ctx.strokeStyle = col + '55';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 1, slotY, slotW - 2, SLOT_HEIGHT);
+
+    // Multiplier label
+    ctx.fillStyle = col;
+    ctx.font = `bold ${slotW > 50 ? 12 : 10}px 'DM Mono', monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(MULTIPLIERS[i] + '×', x + slotW / 2, slotY + SLOT_HEIGHT / 2);
+  }
+
+  // Draw pins
+  for (const pin of pins) {
+    ctx.beginPath();
+    ctx.arc(pin.x, pin.y, PIN_RADIUS, 0, Math.PI * 2);
+    ctx.fillStyle = '#c8bfa0';
+    ctx.fill();
+    // Pin glow
+    ctx.beginPath();
+    ctx.arc(pin.x, pin.y, PIN_RADIUS + 1.5, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(200,191,160,0.25)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Draw balls
+  for (const ball of balls) {
+    // Trail
+    for (let t = 0; t < ball.trail.length; t++) {
+      const alpha = (t / ball.trail.length) * 0.35;
+      const r = ball.radius * (t / ball.trail.length) * 0.7;
+      ctx.beginPath();
+      ctx.arc(ball.trail[t].x, ball.trail[t].y, r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255, 34, 51, ${alpha})`;
+      ctx.fill();
+    }
+
+    // Ball shadow
+    ctx.beginPath();
+    ctx.arc(ball.x + 2, ball.y + 3, ball.radius, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fill();
+
+    // Ball body
+    const grad = ctx.createRadialGradient(
+      ball.x - ball.radius * 0.3, ball.y - ball.radius * 0.3, 0,
+      ball.x, ball.y, ball.radius
+    );
+    grad.addColorStop(0, '#ff6677');
+    grad.addColorStop(0.5, '#ff2233');
+    grad.addColorStop(1, '#aa0011');
+
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Shine
+    ctx.beginPath();
+    ctx.arc(ball.x - ball.radius * 0.28, ball.y - ball.radius * 0.28, ball.radius * 0.32, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.fill();
+
+    // Landed slot highlight
+    if (ball.landed && ball.slot >= 0) {
+      const sw = W / slotCount;
+      const sx = ball.slot * sw;
+      ctx.fillStyle = MULT_COLORS[ball.slot] + '33';
+      ctx.fillRect(sx + 1, slotY, sw - 2, SLOT_HEIGHT);
+    }
+  }
+}
+
+// ── UI helpers ────────────────────────────────────────────────
+function showFlash(text, color) {
+  const el = document.getElementById('resultFlash');
+  el.textContent = text;
+  el.style.color = color;
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+}
+
+function updatePBDisplay() {
+  document.getElementById('pbDisplay').textContent = userPB.toLocaleString() + ' PB';
+}
+
+function updateSessionStats() {
+  document.getElementById('statDrops').textContent = sessionDrops;
+  const el = document.getElementById('statPnl');
+  el.textContent = (sessionPnl >= 0 ? '+' : '') + sessionPnl.toLocaleString() + ' PB';
+  el.style.color = sessionPnl > 0 ? 'var(--success)' : sessionPnl < 0 ? 'var(--error)' : 'var(--muted)';
+}
+
+function addHistory(mult, net, bet) {
+  const list = document.getElementById('historyList');
+  const placeholder = list.querySelector('div[style]');
+  if (placeholder) placeholder.remove();
+
+  const cls = net > 0 ? 'win' : net < 0 ? 'loss' : 'push';
+  const amtCls = net > 0 ? 'pos' : net < 0 ? 'neg' : 'neu';
+  const amtStr = (net >= 0 ? '+' : '') + net.toLocaleString() + ' PB';
+
+  const item = document.createElement('div');
+  item.className = `history-item ${cls}`;
+  item.innerHTML = `
+    <span class="hist-mult" style="color:${net>0?'var(--success)':net<0?'var(--error)':'var(--muted)'}">${mult}×</span>
+    <span style="color:var(--muted);font-size:0.72rem">${bet.toLocaleString()} PB</span>
+    <span class="hist-amt ${amtCls}">${amtStr}</span>`;
+  list.insertBefore(item, list.firstChild);
+
+  // Keep max 20
+  while (list.children.length > 20) list.removeChild(list.lastChild);
+}
+
+// ── Auth ──────────────────────────────────────────────────────
+async function init() {
+  const saved = localStorage.getItem('vault_session');
+  if (!saved) {
+    document.getElementById('loginPrompt').style.display = 'flex';
+    document.getElementById('dropBtn').disabled = true;
+    document.getElementById('pbDisplay').textContent = 'Not logged in';
+    setupLayout();
+    drawStatic();
+    scaleCanvasToFit();
+    return;
+  }
+
+  const { username } = JSON.parse(saved);
+  const { data, error } = await db.from('users').select('*').eq('username', username).single();
+  if (error || !data) {
+    document.getElementById('loginPrompt').style.display = 'flex';
+    setupLayout(); drawStatic(); scaleCanvasToFit(); return;
+  }
+
+  // Check if terminated
+  if (data.status === 'terminated') {
+    document.getElementById('loginPrompt').style.display = 'flex';
+    document.getElementById('loginPrompt').querySelector('h2').textContent = 'Account Terminated';
+    document.getElementById('loginPrompt').querySelector('p').textContent = 'Your account has been terminated and cannot access Plinko.';
+    document.getElementById('loginPrompt').querySelector('a').style.display = 'none';
+    setupLayout(); drawStatic(); scaleCanvasToFit(); return;
+  }
+
+  currentUser = data;
+  userPB = data.pam_bucks ?? 10000;
+
+  // Cheat detection: balls were in flight when they reloaded.
+  // The bet is already deducted in Supabase — just clear the flag and warn them.
+  // Cheat detection: pending key holds the already-deducted balance.
+  // Force that value and re-sync to Supabase in case the async write hadn't landed.
+  const pendingKey = 'plinko_pending_' + data.id;
+  const pendingBal = localStorage.getItem(pendingKey);
+  if (pendingBal !== null) {
+    userPB = parseInt(pendingBal);
+    localStorage.removeItem(pendingKey);
+    await db.from('users').update({ pam_bucks: userPB }).eq('id', currentUser.id);
+    data.pam_bucks = userPB;
+    setTimeout(() => showFlash('Bet forfeited', '#f87171'), 800);
+  }
+
+  updatePBDisplay();
+
+  setupLayout();
+  drawStatic();
+  window.addEventListener('resize', scaleCanvasToFit);
+}
+
+function drawStatic() {
+  draw();
+  // Draw pins without any ball for initial state
+  ctx.clearRect(0, 0, W, H);
+  const slotCount = MULTIPLIERS.length;
+  const slotW = W / slotCount;
+  for (let i = 0; i < slotCount; i++) {
+    const x = i * slotW;
+    const col = MULT_COLORS[i];
+    ctx.fillStyle = col + '22';
+    ctx.fillRect(x + 1, slotY, slotW - 2, SLOT_HEIGHT);
+    ctx.strokeStyle = col + '55';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 1, slotY, slotW - 2, SLOT_HEIGHT);
+    ctx.fillStyle = col;
+    ctx.font = `bold ${slotW > 50 ? 12 : 10}px 'DM Mono', monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(MULTIPLIERS[i] + '×', x + slotW / 2, slotY + SLOT_HEIGHT / 2);
+  }
+  for (const pin of pins) {
+    ctx.beginPath();
+    ctx.arc(pin.x, pin.y, PIN_RADIUS, 0, Math.PI * 2);
+    ctx.fillStyle = '#c8bfa0';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(pin.x, pin.y, PIN_RADIUS + 1.5, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(200,191,160,0.25)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+}
+
+// Handle bet-opt active state for preset buttons
+document.querySelectorAll('.bet-opt').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.bet-opt').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+  });
+});
+
+// ── Single-tab enforcement ────────────────────────────────────
+const TAB_KEY = 'plinko_active_tab';
+const TAB_HEARTBEAT_KEY = 'plinko_tab_heartbeat';
+const TAB_ID = Math.random().toString(36).slice(2);
+let tabBlocked = false;
+let heartbeatInterval = null;
+
+const dupOverlay = document.getElementById('dupTabOverlay');
+const dropBtn = document.getElementById('dropBtn');
+
+function setTabBlocked(blocked) {
+  tabBlocked = blocked;
+  dupOverlay.classList.toggle('active', blocked);
+  if (!blocked) {
+    // Claim ownership
+    localStorage.setItem(TAB_KEY, TAB_ID);
+    localStorage.setItem(TAB_HEARTBEAT_KEY, Date.now().toString());
+  }
+}
+
+function claimTab() {
+  localStorage.setItem(TAB_KEY, TAB_ID);
+  localStorage.setItem(TAB_HEARTBEAT_KEY, Date.now().toString());
+  setTabBlocked(false);
+}
+
+function checkForOtherTab() {
+  const activeId = localStorage.getItem(TAB_KEY);
+  const lastBeat = parseInt(localStorage.getItem(TAB_HEARTBEAT_KEY) || '0');
+  const age = Date.now() - lastBeat;
+  // Another tab owns the lock and its heartbeat is fresh (< 4s old)
+  if (activeId && activeId !== TAB_ID && age < 4000) {
+    setTabBlocked(true);
+  } else {
+    claimTab();
+  }
+}
+
+function sendHeartbeat() {
+  if (!tabBlocked) {
+    if (localStorage.getItem(TAB_KEY) === TAB_ID) {
+      localStorage.setItem(TAB_HEARTBEAT_KEY, Date.now().toString());
+    } else {
+      // Another tab stole the lock
+      setTabBlocked(true);
+    }
+  }
+}
+
+// BroadcastChannel: instant notification when a new tab opens
+let bc;
+try {
+  bc = new BroadcastChannel('plinko_tab_channel');
+  bc.onmessage = (e) => {
+    if (e.data.type === 'NEW_TAB' && e.data.id !== TAB_ID) {
+      // Another tab just opened — if we own the lock, they'll be blocked
+      // If we don't own, do nothing
+      if (localStorage.getItem(TAB_KEY) === TAB_ID) {
+        // Refresh our heartbeat so the new tab sees us as alive
+        localStorage.setItem(TAB_HEARTBEAT_KEY, Date.now().toString());
+      }
+    }
+    if (e.data.type === 'CLAIM' && e.data.id !== TAB_ID) {
+      // Another tab claimed the lock
+      if (!tabBlocked) {
+        setTabBlocked(true);
+      }
+    }
+  };
+} catch(e) { bc = null; }
+
+// Initial check
+checkForOtherTab();
+
+// Announce ourselves
+if (bc) bc.postMessage({ type: 'NEW_TAB', id: TAB_ID });
+
+// Heartbeat every 2s
+heartbeatInterval = setInterval(sendHeartbeat, 2000);
+
+// Listen for localStorage changes (cross-tab)
+window.addEventListener('storage', (e) => {
+  if (e.key === TAB_KEY && e.newValue && e.newValue !== TAB_ID) {
+    setTabBlocked(true);
+  }
+});
+
+// Claim this tab button
+document.getElementById('dupClaimBtn').addEventListener('click', () => {
+  claimTab();
+  if (bc) bc.postMessage({ type: 'CLAIM', id: TAB_ID });
+});
+
+// Release lock when leaving
+window.addEventListener('beforeunload', () => {
+  clearInterval(heartbeatInterval);
+  if (localStorage.getItem(TAB_KEY) === TAB_ID) {
+    localStorage.removeItem(TAB_KEY);
+    localStorage.removeItem(TAB_HEARTBEAT_KEY);
+  }
+});
+
+init();
+</script>
+</body>
+</html>

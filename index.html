@@ -1,0 +1,1942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pam's Casino and Resort</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>
+  :root {
+    --bg: #0a0900;
+    --surface: #12100a;
+    --border: #2a2310;
+    --accent: #FFD700;
+    --accent2: #ff8c00;
+    --text: #f0ead8;
+    --muted: #7a6a40;
+    --success: #4ade80;
+    --error: #f87171;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 20% 20%, rgba(255,215,0,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 80% 80%, rgba(255,140,0,0.06) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .grain {
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .container {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    max-width: 500px;
+    padding: 20px;
+    margin: auto;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 40px;
+    text-align: center;
+    line-height: 1.4;
+  }
+
+  .logo span {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* PB Balance block */
+  .pb-block {
+    background: linear-gradient(135deg, rgba(255,215,0,0.08), rgba(255,140,0,0.05));
+    border: 1px solid rgba(255,215,0,0.2);
+    border-radius: 12px;
+    padding: 14px 18px;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .pb-label { font-size: 0.75rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+  .pb-amount { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.5rem; color: var(--accent); }
+
+
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px;
+    position: relative;
+    overflow: hidden;
+    animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent);
+    opacity: 0.6;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--bg);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 32px;
+  }
+
+  .tab-btn {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.25s ease;
+  }
+
+  .tab-btn.active {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .panel { display: none; }
+  .panel.active { display: block; animation: fadeIn 0.3s ease; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateX(10px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .panel-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.6rem;
+    margin-bottom: 6px;
+    background: linear-gradient(135deg, var(--text) 60%, var(--muted));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .panel-sub {
+    color: var(--muted);
+    font-size: 0.88rem;
+    margin-bottom: 28px;
+  }
+
+  .pfp-wrap {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 24px;
+  }
+
+  .pfp-circle {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: var(--bg);
+    overflow: hidden;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+
+  .pfp-circle:hover { border-color: var(--accent); }
+
+  .pfp-circle img { width: 100%; height: 100%; object-fit: cover; display: none; }
+
+  .pfp-placeholder {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem;
+  }
+
+  .pfp-info { flex: 1; }
+  .pfp-info strong {
+    display: block;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .pfp-info small { color: var(--muted); font-size: 0.78rem; line-height: 1.5; }
+
+  .pfp-btn {
+    padding: 7px 14px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 8px;
+  }
+  .pfp-btn:hover { border-color: var(--accent); color: var(--accent); }
+  #pfp-input { display: none; }
+
+  .field { margin-bottom: 18px; }
+  .field label {
+    display: block;
+    font-size: 0.78rem;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .field input {
+    width: 100%;
+    padding: 13px 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .field input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(124,106,247,0.1);
+  }
+  .field input::placeholder { color: var(--muted); }
+
+  .strength-bar { display: flex; gap: 4px; margin-top: 8px; height: 3px; }
+  .strength-seg { flex: 1; border-radius: 2px; background: var(--border); transition: background 0.3s; }
+
+  .submit-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: opacity 0.2s, transform 0.2s;
+  }
+  .submit-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+  .submit-btn:active { transform: translateY(0); }
+  .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  .msg {
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    display: none;
+    animation: fadeIn 0.3s ease;
+  }
+  .msg.success { background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.3); color: var(--success); display: block; }
+  .msg.error { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: var(--error); display: block; }
+
+  .profile-view { text-align: center; padding: 10px 0; }
+
+  .profile-avatar {
+    width: 90px; height: 90px;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    background: linear-gradient(var(--surface), var(--surface)) padding-box,
+                linear-gradient(135deg, var(--accent), var(--accent2)) border-box;
+    overflow: hidden;
+    margin: 0 auto 16px;
+  }
+  .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .avatar-placeholder {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2.5rem; background: var(--bg);
+  }
+
+  .profile-name { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.4rem; margin-bottom: 6px; }
+
+  .profile-badge {
+    display: inline-block;
+    padding: 3px 12px;
+    background: rgba(124,106,247,0.15);
+    border: 1px solid rgba(124,106,247,0.3);
+    border-radius: 20px;
+    color: var(--accent);
+    font-size: 0.75rem;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 28px;
+  }
+
+  .logout-btn {
+    padding: 10px 28px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .logout-btn:hover { border-color: var(--error); color: var(--error); }
+
+  .settings-section { margin-top: 4px; }
+  .settings-title {
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 10px;
+  }
+  .settings-btn {
+    width: 100%; padding: 10px 14px;
+    background: transparent; border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 0.85rem;
+    cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+    text-align: left;
+  }
+  .settings-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .settings-btn.danger:hover { border-color: var(--error); color: var(--error); }
+  .settings-btn-icon { font-size: 1rem; width: 20px; text-align: center; }
+
+  /* Settings modals */
+  .s-modal-overlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: rgba(0,0,0,0.75); backdrop-filter: blur(6px);
+    display: none; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .s-modal-overlay.open { display: flex; }
+  .s-modal {
+    background: #0e0e1a; border: 1px solid #1a1a2e;
+    border-radius: 18px; padding: 28px 24px;
+    width: 100%; max-width: 380px; position: relative;
+    animation: smSlide 0.2s cubic-bezier(0.16,1,0.3,1);
+  }
+  @keyframes smSlide { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+  .s-modal-top { height: 2px; border-radius: 18px 18px 0 0; margin: -28px -24px 22px; }
+  .s-modal-icon { font-size: 1.8rem; margin-bottom: 8px; }
+  .s-modal-title {
+    font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.15rem;
+    margin-bottom: 4px;
+  }
+  .s-modal-sub { font-size: 0.82rem; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+  .s-modal-label {
+    display: block; font-size: 0.68rem; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 7px; font-family: 'Syne', sans-serif;
+  }
+  .s-modal-input {
+    width: 100%; padding: 11px 14px;
+    background: #080810; border: 1px solid #1a1a2e;
+    border-radius: 10px; color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
+    outline: none; transition: border-color 0.2s; margin-bottom: 14px;
+  }
+  .s-modal-input:focus { border-color: var(--accent); }
+  .s-modal-input.danger:focus { border-color: var(--error); }
+  .s-modal-btns { display: flex; gap: 8px; margin-top: 6px; }
+  .s-modal-btn {
+    flex: 1; padding: 12px; border: none; border-radius: 10px;
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.82rem;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    cursor: pointer; transition: opacity 0.2s, transform 0.1s;
+  }
+  .s-modal-btn:hover { opacity: 0.88; }
+  .s-modal-btn:active { transform: scale(0.98); }
+  .s-modal-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .s-modal-btn.cancel { background: #13131f; color: var(--muted); border: 1px solid #1a1a2e; flex: none; padding: 12px 20px; }
+  .s-modal-btn.confirm { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #000; }
+  .s-modal-btn.confirm-danger { background: linear-gradient(135deg, #f87171, #dc2626); color: #fff; }
+  .s-modal-msg { font-size: 0.78rem; min-height: 18px; margin-top: 8px; text-align: center; }
+  .s-modal-msg.err { color: var(--error); }
+  .s-modal-msg.ok { color: var(--success); }
+
+  /* pfp picker inside modal */
+  .s-pfp-wrap {
+    display: flex; align-items: center; gap: 14px; margin-bottom: 16px;
+  }
+  .s-pfp-preview {
+    width: 64px; height: 64px; border-radius: 50%;
+    border: 2px solid #1a1a2e; overflow: hidden;
+    background: #080810; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem;
+  }
+  .s-pfp-preview img { width: 100%; height: 100%; object-fit: cover; display: none; }
+  .s-pfp-choose {
+    padding: 9px 16px; background: transparent;
+    border: 1px solid #1a1a2e; border-radius: 8px;
+    color: var(--muted); font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem; cursor: pointer; transition: all 0.2s;
+  }
+  .s-pfp-choose:hover { border-color: var(--accent); color: var(--accent); }
+
+  .ad-btn {
+    width: 100%; margin-top: 10px; padding: 13px;
+    background: linear-gradient(135deg, rgba(74,222,128,0.1), rgba(34,197,94,0.06));
+    border: 1px solid rgba(74,222,128,0.25);
+    border-radius: 12px; color: var(--success);
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 0.85rem; letter-spacing: 0.08em; text-transform: uppercase;
+    cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .ad-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(74,222,128,0.18), rgba(34,197,94,0.11));
+    border-color: rgba(74,222,128,0.55);
+    box-shadow: 0 4px 16px rgba(74,222,128,0.12);
+    transform: translateY(-1px);
+  }
+  .ad-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .ad-overlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: rgba(0,0,0,0.94); backdrop-filter: blur(8px);
+    display: none; align-items: center; justify-content: center;
+  }
+  .ad-overlay.active { display: flex; }
+
+  .ad-modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 18px; overflow: hidden;
+    width: 100%; max-width: 460px; margin: 20px;
+  }
+
+  .ad-modal-header {
+    padding: 14px 18px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .ad-modal-title {
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 0.82rem; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--success);
+  }
+  .ad-timer {
+    font-family: 'DM Mono', monospace; font-size: 0.82rem; color: var(--muted);
+    min-width: 60px; text-align: right;
+  }
+
+  .ad-video-wrap { position: relative; background: #000; line-height: 0; }
+  .ad-video-wrap video { width: 100%; display: block; max-height: 260px; object-fit: contain; }
+
+  .ad-modal-footer {
+    padding: 14px 18px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .ad-footer-msg { font-size: 0.8rem; color: var(--muted); }
+
+  .ad-claim-btn {
+    padding: 10px 20px; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; border-radius: 10px; color: #000;
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .ad-claim-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .ad-claim-btn:not(:disabled):hover { opacity: 0.88; transform: translateY(-1px); }
+
+  .games-section { margin-bottom: 8px; }
+  .games-title {
+    font-size: 0.72rem; font-family: 'Syne', sans-serif; font-weight: 700;
+    letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .game-card {
+    display: flex; align-items: center; gap: 14px;
+    background: linear-gradient(135deg, rgba(255,34,51,0.08), rgba(255,100,0,0.05));
+    border: 1px solid rgba(255,34,51,0.2);
+    border-radius: 12px; padding: 14px 16px;
+    text-decoration: none; color: var(--text);
+    transition: all 0.2s; cursor: pointer;
+  }
+  .game-card:hover {
+    border-color: rgba(255,34,51,0.5);
+    background: linear-gradient(135deg, rgba(255,34,51,0.14), rgba(255,100,0,0.08));
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(255,34,51,0.15);
+  }
+  .game-card.mines {
+    background: linear-gradient(135deg, rgba(74,222,128,0.07), rgba(34,197,94,0.04));
+    border-color: rgba(74,222,128,0.2);
+  }
+  .game-card.mines:hover {
+    border-color: rgba(74,222,128,0.5);
+    background: linear-gradient(135deg, rgba(74,222,128,0.13), rgba(34,197,94,0.07));
+    box-shadow: 0 4px 20px rgba(74,222,128,0.12);
+  }
+  .game-card.mines:hover .game-card-arrow { color: #4ade80; }
+  .game-card.dice {
+    background: linear-gradient(135deg, rgba(255,215,0,0.07), rgba(255,140,0,0.04));
+    border-color: rgba(255,215,0,0.2);
+  }
+  .game-card.dice:hover {
+    border-color: rgba(255,215,0,0.5);
+    background: linear-gradient(135deg, rgba(255,215,0,0.13), rgba(255,140,0,0.07));
+    box-shadow: 0 4px 20px rgba(255,215,0,0.12);
+  }
+  .game-card.dice:hover .game-card-arrow { color: var(--accent); }
+
+  .game-card.crash {
+    background: linear-gradient(135deg, rgba(255,80,0,0.07), rgba(255,30,0,0.04));
+    border-color: rgba(255,80,0,0.2);
+  }
+  .game-card.crash:hover {
+    border-color: rgba(255,80,0,0.5);
+    background: linear-gradient(135deg, rgba(255,80,0,0.13), rgba(255,30,0,0.08));
+    box-shadow: 0 4px 20px rgba(255,80,0,0.15);
+  }
+  .game-card.crash:hover .game-card-arrow { color: #ff5000; }
+
+  .game-card.wheel {
+    background: linear-gradient(135deg, rgba(255,215,0,0.07), rgba(255,140,0,0.04));
+    border-color: rgba(255,215,0,0.2);
+  }
+  .game-card.wheel:hover {
+    border-color: rgba(255,215,0,0.5);
+    background: linear-gradient(135deg, rgba(255,215,0,0.13), rgba(255,140,0,0.08));
+    box-shadow: 0 4px 20px rgba(255,215,0,0.15);
+  }
+  .game-card.wheel:hover .game-card-arrow { color: var(--accent); }
+  .game-card-icon { font-size: 1.8rem; flex-shrink: 0; }
+  .game-card-name {
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 1rem; letter-spacing: 0.05em;
+  }
+  .game-card-desc { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+  .game-card-arrow {
+    margin-left: auto; color: var(--muted);
+    font-size: 1rem; transition: transform 0.2s;
+  }
+  .game-card:hover .game-card-arrow { transform: translateX(3px); color: #ff2233; }
+
+  .game-card.blackjack {
+    background: linear-gradient(135deg, rgba(99,179,237,0.07), rgba(49,130,206,0.04));
+    border-color: rgba(99,179,237,0.2);
+  }
+  .game-card.blackjack:hover {
+    border-color: rgba(99,179,237,0.5);
+    background: linear-gradient(135deg, rgba(99,179,237,0.13), rgba(49,130,206,0.07));
+    box-shadow: 0 4px 20px rgba(99,179,237,0.12);
+  }
+  .game-card.blackjack:hover .game-card-arrow { color: #63b3ed; }
+
+  .game-card.lottery {
+    background: linear-gradient(135deg, rgba(255,215,0,0.07), rgba(180,60,255,0.04));
+    border-color: rgba(255,215,0,0.2);
+  }
+  .game-card.lottery:hover {
+    border-color: rgba(255,215,0,0.5);
+    background: linear-gradient(135deg, rgba(255,215,0,0.13), rgba(180,60,255,0.08));
+    box-shadow: 0 4px 20px rgba(255,215,0,0.15);
+  }
+  .game-card.lottery:hover .game-card-arrow { color: var(--accent); }
+
+  .game-card.powerball {
+    background: linear-gradient(135deg, rgba(239,68,68,0.07), rgba(180,0,0,0.04));
+    border-color: rgba(239,68,68,0.2);
+  }
+  .game-card.powerball:hover {
+    border-color: rgba(239,68,68,0.5);
+    background: linear-gradient(135deg, rgba(239,68,68,0.13), rgba(180,0,0,0.08));
+    box-shadow: 0 4px 20px rgba(239,68,68,0.15);
+  }
+  .game-card.powerball:hover .game-card-arrow { color: #ef4444; }
+
+  .game-card.slot-machine {
+    background: linear-gradient(135deg, rgba(168,85,247,0.07), rgba(109,40,217,0.04));
+    border-color: rgba(168,85,247,0.2);
+  }
+  .game-card.slot-machine:hover {
+    border-color: rgba(168,85,247,0.5);
+    background: linear-gradient(135deg, rgba(168,85,247,0.13), rgba(109,40,217,0.08));
+    box-shadow: 0 4px 20px rgba(168,85,247,0.15);
+  }
+  .game-card.slot-machine:hover .game-card-arrow { color: #a855f7; }
+
+  .profile-info-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; font-size: 0.85rem;
+  }
+  .profile-info-row span:first-child { color: var(--muted); }
+
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: inline-block; vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── INBOX ── */
+  .inbox-section { margin-top: 4px; }
+  .inbox-title {
+    font-size: 0.72rem; font-family: 'Syne', sans-serif; font-weight: 700;
+    letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+  }
+  .inbox-badge {
+    background: var(--error); color: #fff;
+    font-size: 0.6rem; font-weight: 800;
+    padding: 2px 6px; border-radius: 20px;
+    letter-spacing: 0.05em;
+  }
+  .inbox-clear-btn {
+    margin-left: auto;
+    padding: 4px 10px;
+    background: transparent;
+    border: 1px solid rgba(248,113,113,0.3);
+    border-radius: 6px;
+    color: var(--error);
+    font-size: 0.65rem; font-family: 'Syne', sans-serif;
+    font-weight: 700; letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .inbox-clear-btn:hover { background: rgba(248,113,113,0.1); border-color: var(--error); }
+  .inbox-empty {
+    text-align: center; padding: 20px;
+    color: var(--muted); font-size: 0.82rem;
+  }
+  .inbox-message {
+    background: rgba(251,146,60,0.06);
+    border: 1px solid rgba(251,146,60,0.25);
+    border-left: 3px solid #fb923c;
+    border-radius: 10px; padding: 14px 16px;
+    margin-bottom: 8px; animation: fadeIn 0.3s ease;
+  }
+  .inbox-message.read {
+    background: rgba(255,255,255,0.02);
+    border-color: var(--border);
+    border-left-color: var(--border);
+    opacity: 0.6;
+  }
+  .inbox-msg-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .inbox-msg-from {
+    font-size: 0.7rem; font-family: 'Syne', sans-serif;
+    font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: #fb923c;
+  }
+  .inbox-message.read .inbox-msg-from { color: var(--muted); }
+  .inbox-msg-label {
+    font-size: 0.65rem; background: rgba(251,146,60,0.15);
+    color: #fb923c; border-radius: 4px; padding: 2px 6px;
+    font-weight: 700; letter-spacing: 0.05em;
+  }
+  .inbox-message.read .inbox-msg-label { background: var(--border); color: var(--muted); }
+  .inbox-msg-body {
+    font-size: 0.85rem; color: var(--text); line-height: 1.6;
+  }
+  .inbox-dismiss {
+    margin-top: 10px; padding: 5px 12px;
+    background: transparent; border: 1px solid rgba(251,146,60,0.3);
+    border-radius: 6px; color: #fb923c;
+    font-size: 0.72rem; font-family: 'Syne', sans-serif;
+    font-weight: 700; cursor: pointer; transition: all 0.2s;
+  }
+  .inbox-dismiss:hover { background: rgba(251,146,60,0.12); }
+
+  /* player DM messages */
+  .inbox-message.dm {
+    background: rgba(99,179,237,0.05);
+    border: 1px solid rgba(99,179,237,0.2);
+    border-left: 3px solid #63b3ed;
+  }
+  .inbox-message.dm .inbox-msg-from { color: #63b3ed; }
+  .inbox-message.dm.read .inbox-msg-from { color: var(--muted); }
+  .inbox-message.dm .inbox-msg-label { background: rgba(99,179,237,0.12); color: #63b3ed; }
+  .inbox-dismiss.dm-dismiss {
+    border-color: rgba(99,179,237,0.3); color: #63b3ed;
+  }
+  .inbox-dismiss.dm-dismiss:hover { background: rgba(99,179,237,0.1); }
+  .inbox-msg-time { font-size: 0.68rem; color: var(--muted); margin-top: 6px; }
+
+  /* send message UI */
+  .send-msg-section { margin-top: 14px; }
+  .send-msg-title {
+    font-size: 0.72rem; font-family: 'Syne', sans-serif; font-weight: 700;
+    letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .send-msg-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .send-msg-input {
+    flex: 1; padding: 11px 14px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
+    outline: none; transition: border-color 0.2s;
+  }
+  .send-msg-input:focus { border-color: #63b3ed; box-shadow: 0 0 0 3px rgba(99,179,237,0.08); }
+  .send-msg-input::placeholder { color: var(--muted); }
+  .send-msg-textarea {
+    width: 100%; padding: 11px 14px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
+    outline: none; transition: border-color 0.2s;
+    resize: none; min-height: 72px; line-height: 1.5;
+  }
+  .send-msg-textarea:focus { border-color: #63b3ed; box-shadow: 0 0 0 3px rgba(99,179,237,0.08); }
+  .send-msg-textarea::placeholder { color: var(--muted); }
+  .send-msg-btn {
+    padding: 10px 16px;
+    background: linear-gradient(135deg, rgba(99,179,237,0.2), rgba(49,130,206,0.12));
+    border: 1px solid rgba(99,179,237,0.35); border-radius: 10px;
+    color: #63b3ed; font-family: 'Syne', sans-serif;
+    font-weight: 800; font-size: 0.8rem;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    cursor: pointer; transition: all 0.2s; white-space: nowrap;
+  }
+  .send-msg-btn:hover { background: linear-gradient(135deg, rgba(99,179,237,0.3), rgba(49,130,206,0.2)); border-color: #63b3ed; }
+  .send-msg-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .send-msg-feedback {
+    font-size: 0.82rem; min-height: 18px; padding: 2px 0; transition: color 0.2s;
+  }
+  .send-msg-feedback.ok { color: var(--success); }
+  .send-msg-feedback.err { color: var(--error); }
+
+  .cloud-badge {
+    display: flex; align-items: center; gap: 6px;
+    justify-content: center;
+    color: var(--success); font-size: 0.75rem;
+    margin-top: 16px; opacity: 0.7;
+  }
+  .cloud-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--success); animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .setup-notice {
+    background: rgba(124,106,247,0.08);
+    border: 1px solid rgba(124,106,247,0.2);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-bottom: 20px;
+    line-height: 1.6;
+  }
+  .setup-notice a { color: var(--accent); text-decoration: none; }
+
+  /* ── LEADERBOARD ── */
+  .leaderboard-section { margin-top: 4px; }
+  .leaderboard-title {
+    font-size: 0.72rem; font-family: 'Syne', sans-serif; font-weight: 700;
+    letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .leaderboard-list { display: flex; flex-direction: column; gap: 6px; }
+  .lb-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    transition: background 0.2s;
+  }
+  .lb-row.top-1 {
+    background: linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,140,0,0.06));
+    border-color: rgba(255,215,0,0.3);
+  }
+  .lb-row.top-2 {
+    background: linear-gradient(135deg, rgba(192,192,192,0.08), rgba(150,150,150,0.04));
+    border-color: rgba(192,192,192,0.2);
+  }
+  .lb-row.top-3 {
+    background: linear-gradient(135deg, rgba(205,127,50,0.08), rgba(160,100,40,0.04));
+    border-color: rgba(205,127,50,0.2);
+  }
+  .lb-row.is-me {
+    border-color: rgba(255,215,0,0.4);
+    box-shadow: 0 0 0 1px rgba(255,215,0,0.1);
+  }
+  .lb-rank {
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 0.8rem; min-width: 28px; text-align: center;
+    color: var(--muted);
+  }
+  .lb-row.top-1 .lb-rank { color: var(--accent); }
+  .lb-row.top-2 .lb-rank { color: #c0c0c0; }
+  .lb-row.top-3 .lb-rank { color: #cd7f32; }
+  .lb-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 1px solid var(--border); overflow: hidden;
+    flex-shrink: 0; background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+  }
+  .lb-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .lb-info { flex: 1; min-width: 0; }
+  .lb-name {
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 0.85rem; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .lb-username { font-size: 0.72rem; color: var(--muted); }
+  .lb-amount {
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 0.88rem; color: var(--accent);
+    white-space: nowrap;
+  }
+  .lb-you-badge {
+    font-size: 0.6rem; background: rgba(255,215,0,0.15);
+    color: var(--accent); border-radius: 4px;
+    padding: 1px 5px; font-weight: 700;
+    letter-spacing: 0.05em; margin-left: 4px;
+  }
+  .lb-loading {
+    text-align: center; padding: 20px;
+    color: var(--muted); font-size: 0.82rem;
+  }
+</style>
+</head>
+<body>
+<div class="grain"></div>
+
+<div class="container">
+  <div class="logo">🎰 <span>Pam's Casino</span><br><span style="font-size:0.7rem;letter-spacing:0.25em;opacity:0.5">AND RESORT</span></div>
+
+  <div class="card" id="profile-card" style="display:none;">
+    <div class="profile-view">
+      <div class="profile-avatar" id="profile-avatar-display">
+        <div class="avatar-placeholder">🧑</div>
+      </div>
+      <div class="profile-name" id="profile-name-display"></div>
+      <div class="profile-badge">✓ Member</div>
+      <div class="divider"></div>
+      <div class="profile-info-row">
+        <span>Username</span>
+        <span id="profile-username-display"></span>
+      </div>
+      <div class="profile-info-row">
+        <span>Member since</span>
+        <span id="profile-date-display"></span>
+      </div>
+      <div style="margin-top:16px;">
+        <div class="pb-block">
+          <div>
+            <div class="pb-label">💰 Pam Bucks</div>
+          </div>
+          <div class="pb-amount" id="profile-pambucks-display">10,000 PB</div>
+        </div>
+      </div>
+
+
+
+      <div class="divider"></div>
+
+      <div class="inbox-section" id="inboxSection">
+        <div class="inbox-title">
+          📬 Inbox
+          <span class="inbox-badge" id="inboxBadge" style="display:none"></span>
+          <button class="inbox-clear-btn" id="inboxClearBtn" onclick="clearAllMessages()" style="display:none">🗑 Clear All</button>
+        </div>
+        <div id="inboxList"><div class="inbox-empty">No messages</div></div>
+
+        <div class="send-msg-section">
+          <div class="send-msg-title">✉️ Send Message</div>
+          <div class="send-msg-row">
+            <input class="send-msg-input" id="msg-to" placeholder="Recipient username" autocomplete="off">
+          </div>
+          <div style="margin-bottom:8px;">
+            <textarea class="send-msg-textarea" id="msg-body" placeholder="Write your message…" maxlength="500"></textarea>
+          </div>
+          <div class="send-msg-row">
+            <button class="send-msg-btn" id="send-msg-btn" onclick="sendMessage()">Send Message 💬</button>
+          </div>
+          <div class="send-msg-feedback" id="send-msg-feedback"></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="games-section">
+        <div class="games-title">🎮 Games</div>
+        <a class="game-card" href="plinko.html">
+          <div class="game-card-icon">🔴</div>
+          <div>
+            <div class="game-card-name">Plinko</div>
+            <div class="game-card-desc">Drop balls, win Pam Bucks</div>
+          </div>
+          <div class="game-card-arrow">→</div>
+        </a>
+        <a class="game-card mines" href="mines.html" style="margin-top:8px;">
+          <div class="game-card-icon">💣</div>
+          <div>
+            <div class="game-card-name">Mines</div>
+            <div class="game-card-desc">Avoid bombs, collect emeralds</div>
+          </div>
+          <div class="game-card-arrow">→</div>
+        </a>
+        <a class="game-card dice" href="dice.html" style="margin-top:8px;">
+          <div class="game-card-icon">🎲</div>
+          <div>
+            <div class="game-card-name">Dice</div>
+            <div class="game-card-desc">Roll over or under, beat the odds</div>
+          </div>
+          <div class="game-card-arrow">→</div>
+        </a>
+        <a class="game-card crash" href="crash.html" style="margin-top:8px;">
+          <div class="game-card-icon">🚀</div>
+          <div>
+            <div class="game-card-name">Crash</div>
+            <div class="game-card-desc">Cash out before it crashes — or lose it all</div>
+          </div>
+          <div class="game-card-arrow">→</div>
+        </a>
+        <a class="game-card wheel" href="wheel.html" style="margin-top:8px;">
+          <div class="game-card-icon">🎡</div>
+          <div>
+            <div class="game-card-name">Wheel</div>
+            <div class="game-card-desc">Spin 200 segments — beat the 82.5% house</div>
+          </div>
+          <div class="game-card-arrow">→</div>
+        </a>
+        <a class="game-card blackjack" href="blackjack.html" style="margin-top:8px;">
+          <div class="game-card-icon">🃏</div>
+          <div>
+            <div class="game-card-name">Blackjack</div>
+            <div class="game-card-desc">6-deck shoe, dealer hits soft 17</div>
+          </div>
+          <div class="game-card-arrow">→</div>
+        </a>
+        <a class="game-card lottery" href="lottery_ticket.html" style="margin-top:8px;">
+          <div class="game-card-icon">🎟️</div>
+          <div>
+            <div class="game-card-name">Lottery Tickets</div>
+            <div class="game-card-desc">Scratch to win — three unique tickets</div>
+          </div>
+          <div class="game-card-arrow">→</div>
+        </a>
+        <a class="game-card powerball" href="powerball.html" style="margin-top:8px;">
+          <div class="game-card-icon">🔴</div>
+          <div>
+            <div class="game-card-name">Powerball</div>
+            <div class="game-card-desc">Daily draw at 6 PM — jackpot 100,000×</div>
+          </div>
+          <div class="game-card-arrow">→</div>
+        </a>
+
+        <a class="game-card" href="loan.html" style="margin-top:8px; background: linear-gradient(135deg, rgba(201,168,76,0.07), rgba(255,140,0,0.04)); border-color: rgba(201,168,76,0.2);">
+          <div class="game-card-icon">🏦</div>
+          <div>
+            <div class="game-card-name">The Banker</div>
+            <div class="game-card-desc">Borrow up to 100,000 PB — if he trusts you</div>
+          </div>
+          <div class="game-card-arrow" style="color: #c9a84c;">→</div>
+        </a>
+        <a class="game-card slot-machine" href="slot.html" style="margin-top:8px;">
+          <div class="game-card-icon">🎰</div>
+          <div>
+            <div class="game-card-name">Slot Machine</div>
+            <div class="game-card-desc">Spin the reels, hit the jackpot</div>
+          </div>
+          <div class="game-card-arrow">→</div>
+        </a>
+      </div>
+
+      <div class="divider"></div>
+      <div class="leaderboard-section">
+        <div class="leaderboard-title">🏆 Leaderboard</div>
+        <div class="leaderboard-list" id="leaderboardList">
+          <div class="lb-loading">Loading…</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <button class="ad-btn" id="adBtn" onclick="openAd()">📺 Watch Ad — Earn 1,000 PB</button>
+      <div class="divider"></div>
+      <div class="settings-section">
+        <div class="settings-title">Account Settings</div>
+        <button class="settings-btn" onclick="openChangeUsername()">
+          <span class="settings-btn-icon">✏️</span> Change Username
+        </button>
+        <button class="settings-btn" onclick="openChangePfp()">
+          <span class="settings-btn-icon">🖼️</span> Change Profile Picture
+        </button>
+        <button class="settings-btn danger" onclick="openDeleteAccount()">
+          <span class="settings-btn-icon">🗑️</span> Delete Account
+        </button>
+      </div>
+      <div class="divider"></div>
+      <button class="logout-btn" onclick="logout()">Sign out</button>
+      <div class="cloud-badge">
+        <div class="cloud-dot"></div>
+        Synced to Supabase cloud
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="auth-card">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('signup')">Sign Up</button>
+      <button class="tab-btn" onclick="switchTab('login')">Log In</button>
+    </div>
+
+    <div class="panel active" id="signup-panel">
+      <div class="panel-title">Create account</div>
+      <div class="panel-sub">Your profile syncs across all devices instantly.</div>
+
+      <div id="setup-warning" class="setup-notice" style="display:none;">
+        ⚠️ Database table not found. Please <a href="#" onclick="showSetupInstructions()">set up your Supabase table</a> first.
+      </div>
+
+      <div class="pfp-wrap">
+        <div class="pfp-circle" onclick="document.getElementById('pfp-input').click()">
+          <div class="pfp-placeholder">🧑</div>
+          <img id="pfp-preview" src="" alt="PFP">
+        </div>
+        <div class="pfp-info">
+          <strong>Profile Photo</strong>
+          <small>Upload a photo to personalize your account.</small><br>
+          <button class="pfp-btn" onclick="document.getElementById('pfp-input').click()">Choose file</button>
+        </div>
+      </div>
+      <input type="file" id="pfp-input" accept="image/*" onchange="handlePfp(this)">
+
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="reg-username" placeholder="e.g. stardust99" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="reg-password" placeholder="Min. 6 characters" oninput="checkStrength(this.value)">
+        <div class="strength-bar">
+          <div class="strength-seg" id="s1"></div>
+          <div class="strength-seg" id="s2"></div>
+          <div class="strength-seg" id="s3"></div>
+          <div class="strength-seg" id="s4"></div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Confirm Password</label>
+        <input type="password" id="reg-confirm" placeholder="Re-enter password">
+      </div>
+      <div class="field">
+        <label>Display Name</label>
+        <input type="text" id="reg-displayname" placeholder="Your full name (optional)">
+      </div>
+
+      <button class="submit-btn" id="signup-btn" onclick="signup()">Create Account</button>
+      <div class="msg" id="signup-msg"></div>
+    </div>
+
+    <div class="panel" id="login-panel">
+      <div class="panel-title">Welcome back</div>
+      <div class="panel-sub">Same credentials work on any device.</div>
+
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="login-username" placeholder="Your username" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="login-password" placeholder="Your password">
+      </div>
+
+      <button class="submit-btn" id="login-btn" onclick="login()">Sign In</button>
+      <div class="msg" id="login-msg"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let pfpDataUrl = null;
+
+window.onload = async () => {
+  const saved = localStorage.getItem('vault_session');
+  if (saved) {
+    try {
+      const { username } = JSON.parse(saved);
+      const user = await getUser(username);
+      if (user) { showProfile(user); return; }
+    } catch(e) {}
+    localStorage.removeItem('vault_session');
+  }
+};
+
+async function getUser(username) {
+  const { data, error } = await db
+    .from('users')
+    .select('*')
+    .eq('username', username.toLowerCase())
+    .single();
+  return error ? null : data;
+}
+
+async function createUser(userData) {
+  const { data, error } = await db
+    .from('users')
+    .insert([userData])
+    .select()
+    .single();
+  return { data, error };
+}
+
+function hashPassword(pw) {
+  // Stored as plain text for admin visibility
+  return pw;
+}
+
+function handlePfp(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX = 200;
+      let w = img.width, h = img.height;
+      if (w > h) { h = (h / w) * MAX; w = MAX; }
+      else { w = (w / h) * MAX; h = MAX; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      pfpDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      const preview = document.getElementById('pfp-preview');
+      preview.src = pfpDataUrl;
+      preview.style.display = 'block';
+      document.querySelector('.pfp-placeholder').style.display = 'none';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function checkStrength(pw) {
+  const segs = ['s1','s2','s3','s4'].map(id => document.getElementById(id));
+  segs.forEach(s => s.style.background = 'var(--border)');
+  if (!pw) return;
+  let score = 0;
+  if (pw.length >= 6) score++;
+  if (pw.length >= 10) score++;
+  if (/[A-Z]/.test(pw) && /[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  const colors = ['var(--error)', '#f97316', '#facc15', 'var(--success)'];
+  for (let i = 0; i < score; i++) segs[i].style.background = colors[Math.min(score-1,3)];
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', (i === 0) === (tab === 'signup'));
+  });
+  document.getElementById('signup-panel').classList.toggle('active', tab === 'signup');
+  document.getElementById('login-panel').classList.toggle('active', tab === 'login');
+  document.getElementById('signup-msg').className = 'msg';
+  document.getElementById('login-msg').className = 'msg';
+}
+
+async function signup() {
+  const username    = document.getElementById('reg-username').value.trim();
+  const password    = document.getElementById('reg-password').value;
+  const confirm     = document.getElementById('reg-confirm').value;
+  const displayName = document.getElementById('reg-displayname').value.trim() || username;
+
+  if (!username) return setMsg('signup-msg', 'Please enter a username.', 'error');
+  if (username.length < 3) return setMsg('signup-msg', 'Username must be at least 3 characters.', 'error');
+  if (!/^[a-zA-Z0-9_]+$/.test(username)) return setMsg('signup-msg', 'Letters, numbers, and underscores only.', 'error');
+  if (password.length < 6) return setMsg('signup-msg', 'Password must be at least 6 characters.', 'error');
+  if (password !== confirm) return setMsg('signup-msg', 'Passwords do not match.', 'error');
+
+  setLoading('signup-btn', true);
+
+  const existing = await getUser(username);
+  if (existing) {
+    setLoading('signup-btn', false);
+    return setMsg('signup-msg', 'Username already taken. Try another or log in.', 'error');
+  }
+
+  const userData = {
+    username: username.toLowerCase(),
+    display_name: displayName,
+    password_hash: hashPassword(password),
+    pfp: pfpDataUrl || null,
+    pam_bucks: 100,
+    created_at: new Date().toISOString()
+  };
+
+  const { data, error } = await createUser(userData);
+  setLoading('signup-btn', false);
+
+  if (error) {
+    console.error(error);
+    if (error.message && error.message.includes('relation "users" does not exist')) {
+      document.getElementById('setup-warning').style.display = 'block';
+      return setMsg('signup-msg', 'Database table missing — see instructions above.', 'error');
+    }
+    return setMsg('signup-msg', 'Error: ' + error.message, 'error');
+  }
+
+  localStorage.setItem('vault_session', JSON.stringify({ username: username.toLowerCase() }));
+  setMsg('signup-msg', '✓ Account created and synced to cloud!', 'success');
+  setTimeout(() => showProfile(data), 700);
+}
+
+async function login() {
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+
+  if (!username || !password) return setMsg('login-msg', 'Please fill in all fields.', 'error');
+
+  setLoading('login-btn', true);
+  const user = await getUser(username);
+
+  if (!user) {
+    setLoading('login-btn', false);
+    return setMsg('login-msg', 'No account found with that username.', 'error');
+  }
+
+  if (user.password_hash !== hashPassword(password)) {
+    setLoading('login-btn', false);
+    return setMsg('login-msg', 'Incorrect password.', 'error');
+  }
+
+  localStorage.setItem('vault_session', JSON.stringify({ username: user.username }));
+  setLoading('login-btn', false);
+  setMsg('login-msg', '✓ Signing in…', 'success');
+  setTimeout(() => showProfile(user), 500);
+}
+
+let currentUser = null;
+
+// ── AD SYSTEM ─────────────────────────────────────────────────
+let adWatchedFully = false;
+
+function getAdCooldownKey() {
+  return currentUser ? 'ad_claimed_' + currentUser.id : null;
+}
+
+function updateAdBtn() {
+  const btn = document.getElementById('adBtn');
+  if (!btn) return;
+  const key = getAdCooldownKey();
+  if (!key) return;
+  const lastClaimed = localStorage.getItem(key);
+  if (lastClaimed) {
+    const daysSince = (Date.now() - parseInt(lastClaimed)) / (1000 * 60 * 60 * 24);
+    if (daysSince < 1) {
+      btn.disabled = true;
+      btn.textContent = '📺 Ad claimed today — come back tomorrow';
+      return;
+    }
+  }
+  btn.disabled = false;
+  btn.innerHTML = '📺 Watch Ad — Earn 1,000 PB';
+}
+
+function openAd() {
+  const key = getAdCooldownKey();
+  if (key) {
+    const lastClaimed = localStorage.getItem(key);
+    if (lastClaimed && (Date.now() - parseInt(lastClaimed)) < 1000 * 60 * 60 * 24) return;
+  }
+
+  adWatchedFully = false;
+  const video = document.getElementById('adVideo');
+  const claimBtn = document.getElementById('adClaimBtn');
+  const timerEl = document.getElementById('adTimer');
+  const footerMsg = document.getElementById('adFooterMsg');
+
+  claimBtn.disabled = true;
+  footerMsg.textContent = 'Watch the full ad to claim your reward.';
+  timerEl.textContent = 'Loading…';
+
+  // Remove any old listeners by replacing video element clone
+  video.load();
+  video.currentTime = 0;
+
+  // Block seeking — reset to furthest watched point if they try to scrub
+  let maxReached = 0;
+  function onTimeUpdate() {
+    if (video.currentTime > maxReached + 0.5) {
+      // They jumped forward — reset to max reached
+      video.currentTime = maxReached;
+    } else {
+      maxReached = Math.max(maxReached, video.currentTime);
+    }
+    if (video.duration && video.duration > 0) {
+      const remaining = Math.ceil(video.duration - video.currentTime);
+      timerEl.textContent = remaining > 0 ? `${remaining}s left` : 'Almost done…';
+    }
+  }
+
+  function onEnded() {
+    adWatchedFully = true;
+    claimBtn.disabled = false;
+    timerEl.textContent = '✓ Done!';
+    footerMsg.textContent = 'You watched the full ad. Claim your 1,000 PB!';
+  }
+
+  function onLoadedMetadata() {
+    const remaining = Math.ceil(video.duration);
+    timerEl.textContent = `${remaining}s left`;
+  }
+
+  video.removeEventListener('timeupdate', video._onTimeUpdate);
+  video.removeEventListener('ended', video._onEnded);
+  video.removeEventListener('loadedmetadata', video._onLoadedMetadata);
+  video._onTimeUpdate = onTimeUpdate;
+  video._onEnded = onEnded;
+  video._onLoadedMetadata = onLoadedMetadata;
+  video.addEventListener('timeupdate', onTimeUpdate);
+  video.addEventListener('ended', onEnded);
+  video.addEventListener('loadedmetadata', onLoadedMetadata);
+
+  document.getElementById('adOverlay').classList.add('active');
+  video.play().catch(() => {});
+}
+
+function closeAd() {
+  const video = document.getElementById('adVideo');
+  video.pause();
+  video.currentTime = 0;
+  adWatchedFully = false;
+  document.getElementById('adOverlay').classList.remove('active');
+  document.getElementById('adClaimBtn').disabled = true;
+}
+
+async function claimAd() {
+  if (!adWatchedFully || !currentUser) return;
+
+  const btn = document.getElementById('adClaimBtn');
+  btn.disabled = true;
+  btn.textContent = '…';
+
+  const newPB = (currentUser.pam_bucks ?? 10000) + 1000;
+  const { error } = await db.from('users').update({ pam_bucks: newPB }).eq('id', currentUser.id);
+
+  if (error) {
+    btn.disabled = false;
+    btn.textContent = 'Claim 1,000 PB';
+    document.getElementById('adFooterMsg').textContent = 'Error saving reward. Try again.';
+    return;
+  }
+
+  currentUser.pam_bucks = newPB;
+  document.getElementById('profile-pambucks-display').textContent = newPB.toLocaleString() + ' PB';
+  localStorage.setItem(getAdCooldownKey(), Date.now().toString());
+
+  closeAd();
+  updateAdBtn();
+}
+
+function showProfile(user) {
+  currentUser = user;
+  document.getElementById('auth-card').style.display = 'none';
+  document.getElementById('profile-card').style.display = 'block';
+  document.getElementById('profile-name-display').textContent = user.display_name || user.username;
+  document.getElementById('profile-username-display').textContent = '@' + user.username;
+  const date = user.created_at
+    ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    : 'Unknown';
+  document.getElementById('profile-date-display').textContent = date;
+  const pb = user.pam_bucks !== undefined && user.pam_bucks !== null ? user.pam_bucks : 10000;
+  document.getElementById('profile-pambucks-display').textContent = pb.toLocaleString() + ' PB';
+  const avatarEl = document.getElementById('profile-avatar-display');
+  if (user.pfp) {
+    avatarEl.innerHTML = `<img src="${user.pfp}" alt="pfp">`;
+  } else {
+    avatarEl.innerHTML = `<div class="avatar-placeholder">🧑</div>`;
+  }
+  updateAdBtn();
+  loadInbox(user);
+  loadLeaderboard(user);
+}
+
+function parseInbox(warning_message) {
+  // warning_message stores either:
+  //   - legacy plain string (old admin warning)
+  //   - legacy JSON array (messages only)
+  //   - new wrapper object: {messages: [...], loan: {...}}
+  if (!warning_message) return [];
+  try {
+    const parsed = JSON.parse(warning_message);
+    // New wrapper format
+    if (parsed && !Array.isArray(parsed) && parsed.messages !== undefined) {
+      return parsed.messages || [];
+    }
+    // Legacy array
+    if (Array.isArray(parsed)) return parsed;
+  } catch(e) {}
+  // Legacy plain string = admin warning
+  return [{ type: 'warning', text: warning_message, id: 'legacy', ts: null }];
+}
+
+function loadInbox(user) {
+  const list = document.getElementById('inboxList');
+  const badge = document.getElementById('inboxBadge');
+  const messages = parseInbox(user.warning_message);
+
+  const allMessages = messages.map(m => {
+    const readKey = 'inbox_read_' + user.id + '_' + m.id;
+    const isRead = localStorage.getItem(readKey) === '1';
+    return { ...m, readKey, isRead };
+  });
+
+  const unread = allMessages.filter(m => !m.isRead).length;
+  badge.textContent = unread;
+  badge.style.display = unread > 0 ? 'inline' : 'none';
+
+  const clearBtn = document.getElementById('inboxClearBtn');
+  if (clearBtn) clearBtn.style.display = allMessages.length ? 'inline-block' : 'none';
+
+  if (!allMessages.length) {
+    list.innerHTML = '<div class="inbox-empty">No messages</div>';
+    return;
+  }
+
+  list.innerHTML = allMessages.map(m => {
+    if (m.type === 'warning') {
+      return `
+        <div class="inbox-message${m.isRead ? ' read' : ''}" id="inbox-${m.readKey}">
+          <div class="inbox-msg-header">
+            <span class="inbox-msg-from">⚠️ Pam's Casino Admin</span>
+            <span class="inbox-msg-label">WARNING</span>
+          </div>
+          <div class="inbox-msg-body">${m.text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+          ${!m.isRead ? `<button class="inbox-dismiss" onclick="dismissMessage('${m.readKey}')">Mark as read</button>` : ''}
+        </div>`;
+    } else {
+      const timeStr = m.ts ? new Date(m.ts).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) : '';
+      return `
+        <div class="inbox-message dm${m.isRead ? ' read' : ''}" id="inbox-${m.readKey}">
+          <div class="inbox-msg-header">
+            <span class="inbox-msg-from">💬 ${(m.from||'Someone').replace(/</g,'&lt;')}</span>
+            <span class="inbox-msg-label">MESSAGE</span>
+          </div>
+          <div class="inbox-msg-body">${m.text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+          ${timeStr ? `<div class="inbox-msg-time">${timeStr}</div>` : ''}
+          ${!m.isRead ? `<button class="inbox-dismiss dm-dismiss" onclick="dismissMessage('${m.readKey}')">Mark as read</button>` : ''}
+        </div>`;
+    }
+  }).join('');
+}
+
+function dismissMessage(readKey) {
+  localStorage.setItem(readKey, '1');
+  const el = document.getElementById('inbox-' + readKey);
+  if (el) {
+    el.classList.add('read');
+    el.querySelector('.inbox-dismiss')?.remove();
+  }
+  const badge = document.getElementById('inboxBadge');
+  const current = parseInt(badge.textContent) - 1;
+  if (current <= 0) badge.style.display = 'none';
+  else badge.textContent = current;
+}
+
+async function clearAllMessages() {
+  if (!currentUser) return;
+  if (!confirm('Clear all messages? This cannot be undone.')) return;
+
+  // Remove all inbox read keys from localStorage
+  const messages = parseInbox(currentUser.warning_message);
+  messages.forEach(m => {
+    localStorage.removeItem('inbox_read_' + currentUser.id + '_' + m.id);
+  });
+
+  // Preserve loan data, wipe messages
+  const existingLoan = (() => {
+    try { const p = JSON.parse(currentUser.warning_message); return (!Array.isArray(p) && p?.loan) ? p.loan : null; } catch(e) { return null; }
+  })();
+  const updatedWM = existingLoan ? JSON.stringify({ messages: [], loan: existingLoan }) : null;
+
+  const { error } = await db
+    .from('users')
+    .update({ warning_message: updatedWM })
+    .eq('id', currentUser.id);
+
+  if (error) { alert('Failed to clear messages. Try again.'); return; }
+
+  currentUser.warning_message = updatedWM;
+  loadInbox(currentUser);
+}
+
+async function sendMessage() {
+  const toInput = document.getElementById('msg-to').value.trim().toLowerCase();
+  const bodyInput = document.getElementById('msg-body').value.trim();
+  const fb = document.getElementById('send-msg-feedback');
+  const btn = document.getElementById('send-msg-btn');
+
+  fb.textContent = '';
+  fb.className = 'send-msg-feedback';
+
+  if (!toInput) { fb.textContent = 'Enter a recipient username.'; fb.className = 'send-msg-feedback err'; return; }
+  if (toInput === currentUser.username) { fb.textContent = "You can't message yourself."; fb.className = 'send-msg-feedback err'; return; }
+  if (!bodyInput) { fb.textContent = 'Write a message first.'; fb.className = 'send-msg-feedback err'; return; }
+  if (bodyInput.length > 500) { fb.textContent = 'Message too long (500 chars max).'; fb.className = 'send-msg-feedback err'; return; }
+
+  btn.disabled = true;
+  btn.textContent = '…';
+
+  // Look up recipient and their current inbox
+  const { data: recipient, error: findErr } = await db
+    .from('users')
+    .select('id, username, display_name, warning_message')
+    .eq('username', toInput)
+    .single();
+
+  if (findErr || !recipient) {
+    btn.disabled = false; btn.textContent = 'Send Message 💬';
+    fb.textContent = `No account found: "${toInput}".`; fb.className = 'send-msg-feedback err';
+    return;
+  }
+
+  // Build updated inbox — keep existing messages, append the new DM
+  const senderName = currentUser.display_name || currentUser.username;
+  const existing = parseInbox(recipient.warning_message);
+  const newMsg = {
+    type: 'dm',
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    from: senderName,
+    text: bodyInput,
+    ts: new Date().toISOString()
+  };
+  // Keep up to 20 messages; preserve loan data in wrapper
+  const updatedMsgs = [...existing, newMsg].slice(-20);
+  const existingLoan = (() => {
+    try { const p = JSON.parse(recipient.warning_message); return (!Array.isArray(p) && p?.loan) ? p.loan : null; } catch(e) { return null; }
+  })();
+  const updatedWM = JSON.stringify({ messages: updatedMsgs, loan: existingLoan });
+
+  const { error: updateErr } = await db
+    .from('users')
+    .update({ warning_message: updatedWM })
+    .eq('id', recipient.id);
+
+  btn.disabled = false; btn.textContent = 'Send Message 💬';
+
+  if (updateErr) {
+    fb.textContent = 'Failed to send. Try again.';
+    fb.className = 'send-msg-feedback err';
+    return;
+  }
+
+  document.getElementById('msg-to').value = '';
+  document.getElementById('msg-body').value = '';
+  fb.textContent = `✓ Message sent to @${recipient.username}!`;
+  fb.className = 'send-msg-feedback ok';
+}
+
+function logout() {
+  localStorage.removeItem('vault_session');
+  currentUser = null;
+  pfpDataUrl = null;
+  document.getElementById('auth-card').style.display = 'block';
+  document.getElementById('profile-card').style.display = 'none';
+  ['reg-username','reg-password','reg-confirm','reg-displayname'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('pfp-preview').style.display = 'none';
+  document.querySelector('.pfp-placeholder').style.display = 'flex';
+  checkStrength('');
+  switchTab('login');
+}
+
+// ── SETTINGS MODALS ───────────────────────────────────────────
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+// Close on overlay click
+document.addEventListener('click', e => {
+  ['usernameModal','pfpModal','deleteModal'].forEach(id => {
+    if (e.target.id === id) closeModal(id);
+  });
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') ['usernameModal','pfpModal','deleteModal'].forEach(closeModal);
+});
+
+// ── CHANGE USERNAME ───────────────────────────────────────────
+function openChangeUsername() {
+  document.getElementById('new-username-input').value = '';
+  document.getElementById('username-modal-msg').textContent = '';
+  document.getElementById('username-modal-msg').className = 's-modal-msg';
+  document.getElementById('usernameModal').classList.add('open');
+  setTimeout(() => document.getElementById('new-username-input').focus(), 100);
+}
+
+async function doChangeUsername() {
+  const input = document.getElementById('new-username-input');
+  const msg = document.getElementById('username-modal-msg');
+  const btn = document.getElementById('username-confirm-btn');
+  const val = input.value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+
+  if (!val || val.length < 3) {
+    msg.textContent = 'Username must be at least 3 characters.';
+    msg.className = 's-modal-msg err'; return;
+  }
+  if (val === currentUser.username) {
+    msg.textContent = "That's already your username.";
+    msg.className = 's-modal-msg err'; return;
+  }
+
+  btn.disabled = true; btn.textContent = '…';
+
+  // Check if taken
+  const { data: existing } = await db.from('users').select('id').eq('username', val).single();
+  if (existing) {
+    msg.textContent = 'That username is already taken.';
+    msg.className = 's-modal-msg err';
+    btn.disabled = false; btn.textContent = 'Save'; return;
+  }
+
+  const { error } = await db.from('users').update({ username: val }).eq('id', currentUser.id);
+  btn.disabled = false; btn.textContent = 'Save';
+
+  if (error) {
+    msg.textContent = 'Failed to update. Try again.';
+    msg.className = 's-modal-msg err'; return;
+  }
+
+  // Update session
+  currentUser.username = val;
+  localStorage.setItem('vault_session', JSON.stringify({ username: val }));
+  document.getElementById('profile-username-display').textContent = '@' + val;
+  msg.textContent = '✓ Username updated!';
+  msg.className = 's-modal-msg ok';
+  setTimeout(() => closeModal('usernameModal'), 1200);
+}
+
+// ── CHANGE PFP ────────────────────────────────────────────────
+let newPfpDataUrl = null;
+
+function openChangePfp() {
+  newPfpDataUrl = null;
+  document.getElementById('pfp-confirm-btn').disabled = true;
+  document.getElementById('pfp-modal-msg').textContent = '';
+  document.getElementById('s-pfp-input').value = '';
+  // Show current pfp or placeholder
+  const img = document.getElementById('s-pfp-preview-img');
+  const emoji = document.getElementById('s-pfp-emoji');
+  if (currentUser.pfp) {
+    img.src = currentUser.pfp; img.style.display = 'block'; emoji.style.display = 'none';
+  } else {
+    img.style.display = 'none'; emoji.style.display = 'block';
+  }
+  document.getElementById('pfpModal').classList.add('open');
+}
+
+function handleModalPfp(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img2 = new Image();
+    img2.onload = () => {
+      const canvas = document.createElement('canvas');
+      const size = Math.min(img2.width, img2.height);
+      canvas.width = 200; canvas.height = 200;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img2, (img2.width-size)/2, (img2.height-size)/2, size, size, 0, 0, 200, 200);
+      newPfpDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      const previewImg = document.getElementById('s-pfp-preview-img');
+      const emoji = document.getElementById('s-pfp-emoji');
+      previewImg.src = newPfpDataUrl; previewImg.style.display = 'block';
+      emoji.style.display = 'none';
+      document.getElementById('pfp-confirm-btn').disabled = false;
+    };
+    img2.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function doChangePfp() {
+  const msg = document.getElementById('pfp-modal-msg');
+  const btn = document.getElementById('pfp-confirm-btn');
+  if (!newPfpDataUrl) return;
+
+  btn.disabled = true; btn.textContent = '…';
+
+  const { error } = await db.from('users').update({ pfp: newPfpDataUrl }).eq('id', currentUser.id);
+  btn.disabled = false; btn.textContent = 'Save';
+
+  if (error) {
+    msg.textContent = 'Failed to save. Try again.';
+    msg.className = 's-modal-msg err'; return;
+  }
+
+  currentUser.pfp = newPfpDataUrl;
+  // Update avatar in profile view
+  const avatarEl = document.getElementById('profile-avatar-display');
+  avatarEl.innerHTML = `<img src="${newPfpDataUrl}" alt="pfp">`;
+  msg.textContent = '✓ Profile picture updated!';
+  msg.className = 's-modal-msg ok';
+  setTimeout(() => closeModal('pfpModal'), 1200);
+}
+
+// ── DELETE ACCOUNT ────────────────────────────────────────────
+function openDeleteAccount() {
+  document.getElementById('delete-password-input').value = '';
+  document.getElementById('delete-modal-msg').textContent = '';
+  document.getElementById('delete-modal-msg').className = 's-modal-msg';
+  document.getElementById('deleteModal').classList.add('open');
+  setTimeout(() => document.getElementById('delete-password-input').focus(), 100);
+}
+
+async function doDeleteAccount() {
+  const pw = document.getElementById('delete-password-input').value;
+  const msg = document.getElementById('delete-modal-msg');
+  const btn = document.getElementById('delete-confirm-btn');
+
+  if (!pw) {
+    msg.textContent = 'Enter your password.';
+    msg.className = 's-modal-msg err'; return;
+  }
+  if (hashPassword(pw) !== currentUser.password_hash) {
+    msg.textContent = 'Incorrect password.';
+    msg.className = 's-modal-msg err'; return;
+  }
+
+  btn.disabled = true; btn.textContent = '…';
+
+  const { error } = await db.from('users').delete().eq('id', currentUser.id);
+
+  if (error) {
+    msg.textContent = 'Something went wrong. Try again.';
+    msg.className = 's-modal-msg err';
+    btn.disabled = false; btn.textContent = 'Delete Forever'; return;
+  }
+
+  // Wipe session and return to login
+  logout();
+  closeModal('deleteModal');
+}
+
+async function loadLeaderboard(user) {
+  const list = document.getElementById('leaderboardList');
+  list.innerHTML = '<div class="lb-loading">Loading…</div>';
+
+  const { data, error } = await db
+    .from('users')
+    .select('id, username, display_name, pam_bucks, pfp')
+    .order('pam_bucks', { ascending: false })
+    .limit(20);
+
+  if (error || !data || data.length === 0) {
+    list.innerHTML = '<div class="lb-loading">Could not load leaderboard.</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  data.forEach((u, i) => {
+    const rank = i + 1;
+    const isMe = u.id === user.id;
+    const pb = u.pam_bucks !== null && u.pam_bucks !== undefined ? u.pam_bucks : 10000;
+    const name = u.display_name || u.username;
+
+    let rankLabel = rank;
+    if (rank === 1) rankLabel = '🥇';
+    else if (rank === 2) rankLabel = '🥈';
+    else if (rank === 3) rankLabel = '🥉';
+
+    const topClass = rank <= 3 ? `top-${rank}` : '';
+    const meClass = isMe ? 'is-me' : '';
+
+    const row = document.createElement('div');
+    row.className = `lb-row ${topClass} ${meClass}`.trim();
+    row.innerHTML = `
+      <div class="lb-rank">${rankLabel}</div>
+      <div class="lb-avatar">
+        ${u.pfp ? `<img src="${u.pfp}" alt="">` : '🧑'}
+      </div>
+      <div class="lb-info">
+        <div class="lb-name">${(u.display_name || u.username).replace(/</g,'&lt;')}${isMe ? '<span class="lb-you-badge">YOU</span>' : ''}</div>
+        <div class="lb-username">@${u.username.replace(/</g,'&lt;')}</div>
+      </div>
+      <div class="lb-amount">${pb.toLocaleString()} PB</div>
+    `;
+    list.appendChild(row);
+  });
+}
+
+function setMsg(id, text, type) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'msg ' + type;
+}
+
+function setLoading(btnId, loading) {
+  const btn = document.getElementById(btnId);
+  btn.disabled = loading;
+  if (loading) {
+    btn.dataset.label = btn.textContent;
+    btn.innerHTML = '<span class="spinner"></span>';
+  } else {
+    btn.textContent = btn.dataset.label || btn.textContent;
+  }
+}
+
+
+
+function showSetupInstructions() {
+  alert(
+    "One-time Supabase setup:\n\n" +
+    "1. Go to your Supabase project\n" +
+    "2. Click 'SQL Editor' in the left sidebar\n" +
+    "3. Paste and run this SQL:\n\n" +
+    "CREATE TABLE users (\n" +
+    "  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,\n" +
+    "  username text UNIQUE NOT NULL,\n" +
+    "  display_name text,\n" +
+    "  password_hash text NOT NULL,\n" +
+    "  pfp text,\n" +
+    "  pam_bucks integer DEFAULT 10000,\n" +
+    "  created_at timestamptz DEFAULT now()\n" +
+    ");\n\n" +
+    "ALTER TABLE users ENABLE ROW LEVEL SECURITY;\n\n" +
+    "CREATE POLICY \"Allow all\" ON users FOR ALL USING (true) WITH CHECK (true);\n\n" +
+
+    "4. Click 'Run' then reload this page!"
+  );
+}
+</script>
+<!-- ── AD MODAL ── -->
+<div class="ad-overlay" id="adOverlay">
+  <div class="ad-modal">
+    <div class="ad-modal-header">
+      <div class="ad-modal-title">📺 Watch to earn 1,000 PB</div>
+      <div class="ad-timer" id="adTimer">Loading…</div>
+    </div>
+    <div class="ad-video-wrap">
+      <video id="adVideo" playsinline disablePictureInPicture
+        controlsList="nodownload nofullscreen noremoteplayback">
+        <source src="assets/ad.mp4" type="video/mp4">
+      </video>
+    </div>
+    <div class="ad-modal-footer">
+      <div class="ad-footer-msg" id="adFooterMsg">Watch the full ad to claim your reward.</div>
+      <button class="ad-claim-btn" id="adClaimBtn" disabled onclick="claimAd()">Claim 1,000 PB</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── CHANGE USERNAME MODAL ── -->
+<div class="s-modal-overlay" id="usernameModal">
+  <div class="s-modal">
+    <div class="s-modal-top" style="background:linear-gradient(90deg,transparent,var(--accent),transparent)"></div>
+    <div class="s-modal-icon">✏️</div>
+    <div class="s-modal-title">Change Username</div>
+    <div class="s-modal-sub">Pick a new unique username. This will update how others see you.</div>
+    <label class="s-modal-label">New Username</label>
+    <input class="s-modal-input" id="new-username-input" placeholder="e.g. coolplayer99" autocomplete="off" autocapitalize="none">
+    <div class="s-modal-msg" id="username-modal-msg"></div>
+    <div class="s-modal-btns">
+      <button class="s-modal-btn cancel" onclick="closeModal('usernameModal')">Cancel</button>
+      <button class="s-modal-btn confirm" id="username-confirm-btn" onclick="doChangeUsername()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── CHANGE PFP MODAL ── -->
+<div class="s-modal-overlay" id="pfpModal">
+  <div class="s-modal">
+    <div class="s-modal-top" style="background:linear-gradient(90deg,transparent,var(--accent),transparent)"></div>
+    <div class="s-modal-icon">🖼️</div>
+    <div class="s-modal-title">Change Profile Picture</div>
+    <div class="s-modal-sub">Choose a new photo. It will be cropped to a square.</div>
+    <div class="s-pfp-wrap">
+      <div class="s-pfp-preview" id="s-pfp-preview-wrap">
+        <span id="s-pfp-emoji">🧑</span>
+        <img id="s-pfp-preview-img" src="" alt="preview">
+      </div>
+      <button class="s-pfp-choose" onclick="document.getElementById('s-pfp-input').click()">Choose photo</button>
+      <input type="file" id="s-pfp-input" accept="image/*" style="display:none" onchange="handleModalPfp(this)">
+    </div>
+    <div class="s-modal-msg" id="pfp-modal-msg"></div>
+    <div class="s-modal-btns">
+      <button class="s-modal-btn cancel" onclick="closeModal('pfpModal')">Cancel</button>
+      <button class="s-modal-btn confirm" id="pfp-confirm-btn" onclick="doChangePfp()" disabled>Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── DELETE ACCOUNT MODAL ── -->
+<div class="s-modal-overlay" id="deleteModal">
+  <div class="s-modal">
+    <div class="s-modal-top" style="background:linear-gradient(90deg,transparent,var(--error),transparent)"></div>
+    <div class="s-modal-icon">💀</div>
+    <div class="s-modal-title" style="color:var(--error)">Delete Account</div>
+    <div class="s-modal-sub">This is permanent and cannot be undone. All your data, Pam Bucks, and history will be gone forever.</div>
+    <label class="s-modal-label">Enter your password to confirm</label>
+    <input class="s-modal-input danger" id="delete-password-input" type="password" placeholder="Your password">
+    <div class="s-modal-msg" id="delete-modal-msg"></div>
+    <div class="s-modal-btns">
+      <button class="s-modal-btn cancel" onclick="closeModal('deleteModal')">Cancel</button>
+      <button class="s-modal-btn confirm-danger" id="delete-confirm-btn" onclick="doDeleteAccount()">Delete Forever</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Lottery Tickets — Pam's Casino</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800;900&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>
+  :root {
+    --bg: #0a0900;
+    --surface: #12100a;
+    --border: #2a2310;
+    --accent: #FFD700;
+    --accent2: #ff8c00;
+    --text: #f0ead8;
+    --muted: #7a6a40;
+    --success: #4ade80;
+    --error: #f87171;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 50% 0%, rgba(255,215,0,0.07) 0%, transparent 55%),
+      radial-gradient(ellipse 40% 60% at 10% 80%, rgba(255,60,0,0.04) 0%, transparent 50%);
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 24px;
+    background: rgba(10,9,0,0.9);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+    z-index: 10; flex-shrink: 0;
+  }
+
+  .back-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: transparent; border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 14px;
+    color: var(--muted); font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem; cursor: pointer; transition: all 0.2s;
+    text-decoration: none;
+  }
+  .back-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .header-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 900; font-size: 1.2rem;
+    letter-spacing: 0.15em; text-transform: uppercase;
+  }
+  .header-title span {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .pb-display {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255,215,0,0.07);
+    border: 1px solid rgba(255,215,0,0.2);
+    border-radius: 8px; padding: 7px 14px;
+  }
+  .pb-display .pb-label { font-size: 0.72rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+  .pb-display .pb-val { font-family: 'Syne', sans-serif; font-weight: 800; color: var(--accent); font-size: 1rem; }
+
+  /* ── MAIN ── */
+  .main {
+    flex: 1; overflow-y: auto;
+    padding: 32px 24px;
+    position: relative; z-index: 1;
+    max-width: 1100px; margin: 0 auto; width: 100%;
+  }
+
+  .page-intro {
+    text-align: center; margin-bottom: 36px;
+  }
+  .page-intro h2 {
+    font-family: 'Syne', sans-serif; font-weight: 900; font-size: 1.8rem;
+    margin-bottom: 8px;
+  }
+  .page-intro p { color: var(--muted); font-size: 0.9rem; }
+
+  /* ── TICKET GRID ── */
+  .ticket-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 36px;
+  }
+
+  @media (max-width: 900px) { .ticket-grid { grid-template-columns: 1fr; gap: 16px; } }
+  @media (max-width: 480px) { .main { padding: 20px 14px; } }
+
+  /* ── TICKET CARD (purchase) ── */
+  .ticket-card {
+    border-radius: 18px; overflow: hidden;
+    border: 1px solid var(--border);
+    cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+  }
+  .ticket-card:hover { transform: translateY(-4px); }
+
+  /* Chubby Carnival */
+  .ticket-card.carnival {
+    background: linear-gradient(160deg, #1a0a2e 0%, #0d0820 100%);
+    border-color: rgba(200,100,255,0.3);
+    box-shadow: 0 0 30px rgba(180,60,255,0.08);
+  }
+  .ticket-card.carnival:hover { box-shadow: 0 8px 40px rgba(180,60,255,0.2); border-color: rgba(200,100,255,0.6); }
+
+  /* Tubbo Ticket */
+  .ticket-card.tubbo {
+    background: linear-gradient(160deg, #0a1a0a 0%, #060e06 100%);
+    border-color: rgba(74,222,128,0.3);
+    box-shadow: 0 0 30px rgba(74,222,128,0.08);
+  }
+  .ticket-card.tubbo:hover { box-shadow: 0 8px 40px rgba(74,222,128,0.2); border-color: rgba(74,222,128,0.6); }
+
+  /* Wario's Gold Mine */
+  .ticket-card.wario {
+    background: linear-gradient(160deg, #1a1200 0%, #0e0a00 100%);
+    border-color: rgba(255,215,0,0.3);
+    box-shadow: 0 0 30px rgba(255,215,0,0.08);
+  }
+  .ticket-card.wario:hover { box-shadow: 0 8px 40px rgba(255,215,0,0.25); border-color: rgba(255,215,0,0.6); }
+
+  .ticket-header {
+    padding: 20px 20px 14px;
+    position: relative;
+  }
+
+  .ticket-banner {
+    font-family: 'Syne', sans-serif; font-weight: 900;
+    font-size: 1.1rem; letter-spacing: 0.08em;
+    text-transform: uppercase; margin-bottom: 4px;
+  }
+  .carnival .ticket-banner { color: #d97bff; }
+  .tubbo .ticket-banner { color: #4ade80; }
+  .wario .ticket-banner { color: var(--accent); }
+
+  .ticket-tagline { font-size: 0.75rem; color: var(--muted); }
+
+  .ticket-art {
+    height: 160px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 4rem; position: relative; overflow: hidden;
+  }
+
+  .ticket-art-bg {
+    position: absolute; inset: 0;
+    opacity: 0.06; font-size: 8rem;
+    display: flex; align-items: center; justify-content: center;
+    filter: blur(2px);
+  }
+
+  /* Prize table inside card */
+  .prize-table {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 4px 12px; margin-bottom: 10px;
+    font-size: 0.72rem;
+  }
+  .prize-row-item {
+    display: flex; align-items: center; gap: 5px;
+    color: var(--muted);
+  }
+  .prize-row-item .prize-sym { font-size: 0.85rem; }
+  .prize-row-item .prize-mult {
+    font-family: 'DM Mono', monospace; font-weight: 700;
+    margin-left: auto;
+  }
+  .carnival .prize-row-item .prize-mult { color: #d97bff; }
+  .tubbo .prize-row-item .prize-mult { color: #4ade80; }
+  .wario .prize-row-item .prize-mult { color: var(--accent); }
+
+  .ticket-odds-headline {
+    font-size: 0.68rem; color: var(--muted);
+    border-top: 1px dashed rgba(255,255,255,0.06);
+    padding-top: 8px; margin-bottom: 10px;
+    letter-spacing: 0.03em; line-height: 1.6;
+  }
+  .ticket-odds-headline span { font-family: 'DM Mono', monospace; font-size: 0.72rem; }
+
+  .ticket-footer {
+    padding: 14px 20px 20px;
+    border-top: 1px dashed rgba(255,255,255,0.07);
+  }
+
+  .ticket-odds {
+    font-size: 0.72rem; color: var(--muted); margin-bottom: 12px; line-height: 1.6;
+  }
+  .ticket-odds span { font-family: 'DM Mono', monospace; }
+
+  /* Wario art image in ticket card */
+  .wario-card-art {
+    width: 90px; height: 90px; object-fit: contain;
+    image-rendering: pixelated;
+    filter: drop-shadow(0 4px 16px rgba(255,215,0,0.4));
+    animation: warioBob 2.5s ease-in-out infinite;
+  }
+  @keyframes warioBob {
+    0%,100%{transform:translateY(0) rotate(-2deg)} 50%{transform:translateY(-6px) rotate(2deg)}
+  }
+
+  .price-row {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .price-input {
+    flex: 1; padding: 9px 12px;
+    background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px; color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 0.9rem;
+    outline: none; transition: border-color 0.2s; text-align: right;
+  }
+  .carnival .price-input:focus { border-color: #d97bff; }
+  .tubbo .price-input:focus { border-color: #4ade80; }
+  .wario .price-input:focus { border-color: var(--accent); }
+
+  .buy-btn {
+    padding: 9px 16px;
+    border: none; border-radius: 8px;
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 0.78rem; letter-spacing: 0.08em;
+    text-transform: uppercase; cursor: pointer;
+    transition: all 0.2s; white-space: nowrap;
+  }
+  .buy-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+  .buy-btn:active { transform: translateY(0); }
+  .buy-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .carnival .buy-btn { background: linear-gradient(135deg, #d97bff, #9b3dff); color: #fff; }
+  .tubbo .buy-btn { background: linear-gradient(135deg, #4ade80, #16a34a); color: #000; }
+  .wario .buy-btn { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #000; }
+
+  /* ── SCRATCH TICKET OVERLAY ── */
+  .scratch-overlay {
+    position: fixed; inset: 0; z-index: 200;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.88); backdrop-filter: blur(8px);
+    animation: fadeIn 0.2s ease;
+  }
+  .scratch-overlay.active { display: flex; }
+
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+  .scratch-modal {
+    position: relative;
+    border-radius: 20px; overflow: hidden;
+    width: 400px; max-width: 96vw;
+    max-height: 92vh; overflow-y: auto;
+    animation: slideUp 0.3s cubic-bezier(0.16,1,0.3,1);
+  }
+  @keyframes slideUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+
+  /* Carnival scratch modal */
+  .scratch-modal.carnival-modal {
+    background: linear-gradient(160deg, #1a0a2e, #0d0820);
+    border: 1px solid rgba(200,100,255,0.4);
+    box-shadow: 0 0 60px rgba(180,60,255,0.2);
+  }
+  .scratch-modal.tubbo-modal {
+    background: linear-gradient(160deg, #0a1a0a, #060e06);
+    border: 1px solid rgba(74,222,128,0.4);
+    box-shadow: 0 0 60px rgba(74,222,128,0.2);
+  }
+  .scratch-modal.wario-modal {
+    background: linear-gradient(160deg, #1a1200, #0e0a00);
+    border: 1px solid rgba(255,215,0,0.4);
+    box-shadow: 0 0 60px rgba(255,215,0,0.2);
+  }
+
+  .scratch-modal-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px dashed rgba(255,255,255,0.08);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .scratch-modal-title {
+    font-family: 'Syne', sans-serif; font-weight: 900; font-size: 1rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .carnival-modal .scratch-modal-title { color: #d97bff; }
+  .tubbo-modal .scratch-modal-title { color: #4ade80; }
+  .wario-modal .scratch-modal-title { color: var(--accent); }
+
+  .scratch-close {
+    background: transparent; border: none;
+    color: var(--muted); font-size: 1.2rem;
+    cursor: pointer; padding: 4px; transition: color 0.2s;
+  }
+  .scratch-close:hover { color: var(--text); }
+
+  .scratch-bet {
+    text-align: center; padding: 12px;
+    font-size: 0.78rem; color: var(--muted);
+  }
+  .scratch-bet span { font-family: 'DM Mono', monospace; color: var(--text); font-weight: 700; }
+
+  /* ── SCRATCH GRID ── */
+  .scratch-grid {
+    display: grid;
+    padding: 16px 20px;
+    gap: 10px;
+  }
+
+  /* Carnival: 3x3 match symbols */
+  .scratch-grid.carnival-grid { grid-template-columns: repeat(3, 1fr); }
+  /* Tubbo: 1x3 reveal prizes */
+  .scratch-grid.tubbo-grid { grid-template-columns: repeat(3, 1fr); max-width: 300px; margin: 0 auto; }
+  /* Wario: 4 cells with multipliers, find Wario */
+  .scratch-grid.wario-grid { grid-template-columns: repeat(2, 1fr); }
+
+  .scratch-cell {
+    border-radius: 10px; position: relative;
+    overflow: hidden; cursor: pointer;
+    aspect-ratio: 1;
+    min-height: 80px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.8rem;
+    transition: transform 0.15s;
+  }
+  @media (max-width: 480px) {
+    .scratch-cell { min-height: 70px; font-size: 1.5rem; }
+    .cell-symbol { font-size: 1.5rem !important; }
+  }
+  .scratch-cell:not(.revealed):hover { transform: scale(1.05); }
+  .scratch-cell:not(.revealed):active { transform: scale(0.96); }
+
+  .scratch-cell.unscratched {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+  .carnival-modal .scratch-cell.unscratched { background: rgba(200,100,255,0.1); border-color: rgba(200,100,255,0.25); }
+  .tubbo-modal .scratch-cell.unscratched { background: rgba(74,222,128,0.1); border-color: rgba(74,222,128,0.25); }
+  .wario-modal .scratch-cell.unscratched { background: rgba(255,215,0,0.1); border-color: rgba(255,215,0,0.25); }
+
+  .carnival-modal .scratch-cover { background: rgba(120,40,200,0.5); }
+  .tubbo-modal .scratch-cover { background: rgba(20,100,50,0.5); }
+  .wario-modal .scratch-cover { background: rgba(100,80,0,0.5); }
+
+  .scratch-cell.revealed { cursor: default; }
+  .scratch-cell.revealed .scratch-cover { display: none; }
+
+  .cell-content {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px; width: 100%; height: 100%; padding: 6px;
+  }
+  .cell-symbol { font-size: 1.8rem; line-height: 1; }
+  .cell-mult {
+    font-family: 'DM Mono', monospace; font-weight: 700; font-size: 0.7rem;
+    opacity: 0.85;
+  }
+
+  .scratch-cell.winner { animation: cellWin 0.5s ease forwards; }
+  @keyframes cellWin {
+    0%{transform:scale(1)} 40%{transform:scale(1.18)} 70%{transform:scale(0.96)} 100%{transform:scale(1)}
+  }
+  .scratch-cell.winner.carnival-win { background: rgba(200,100,255,0.25); border-color: #d97bff; box-shadow: 0 0 16px rgba(200,100,255,0.4); }
+  .scratch-cell.winner.tubbo-win { background: rgba(74,222,128,0.25); border-color: #4ade80; box-shadow: 0 0 16px rgba(74,222,128,0.4); }
+  .scratch-cell.winner.wario-win { background: rgba(255,215,0,0.25); border-color: var(--accent); box-shadow: 0 0 16px rgba(255,215,0,0.5); }
+
+  /* scratch-all button */
+  .scratch-all-btn {
+    width: calc(100% - 40px); margin: 0 20px 8px;
+    padding: 10px;
+    border: 1px dashed rgba(255,255,255,0.15); border-radius: 8px;
+    background: transparent;
+    font-family: 'DM Sans', sans-serif; font-size: 0.8rem; color: var(--muted);
+    cursor: pointer; transition: all 0.2s;
+  }
+  .scratch-all-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.3); }
+
+  /* result banner */
+  .scratch-result {
+    margin: 8px 20px 20px;
+    padding: 14px 16px;
+    border-radius: 12px; text-align: center;
+    display: none;
+    animation: fadeIn 0.4s ease;
+  }
+  .scratch-result.win {
+    background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.3);
+    display: block;
+  }
+  .scratch-result.loss {
+    background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.2);
+    display: block;
+  }
+  .result-big {
+    font-family: 'Syne', sans-serif; font-weight: 900; font-size: 1.5rem;
+    margin-bottom: 4px;
+  }
+  .result-big.win-text { color: var(--success); }
+  .result-big.loss-text { color: var(--error); }
+  .result-sub { font-size: 0.8rem; color: var(--muted); }
+
+  /* ── HISTORY ── */
+  .history-section {
+    margin-top: 8px;
+  }
+  .history-title {
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.72rem;
+    letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .history-list { display: flex; flex-direction: column; gap: 6px; }
+  .history-item {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px;
+    font-size: 0.82rem; animation: slideRight 0.3s ease;
+  }
+  @keyframes slideRight { from{opacity:0;transform:translateX(-10px)} to{opacity:1;transform:translateX(0)} }
+  .history-item.win { border-left: 3px solid var(--success); }
+  .history-item.loss { border-left: 3px solid var(--error); }
+  .history-ticket { font-size: 1.1rem; }
+  .history-name { flex: 1; color: var(--muted); }
+  .history-amt { font-family: 'DM Mono', monospace; font-weight: 700; }
+  .history-amt.pos { color: var(--success); }
+  .history-amt.neg { color: var(--error); }
+
+  /* login overlay */
+  .login-prompt {
+    position: fixed; inset: 0; z-index: 300;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(10,9,0,0.85); backdrop-filter: blur(4px);
+  }
+  .login-prompt.active { display: flex; }
+  .login-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 32px; text-align: center; max-width: 320px;
+  }
+  .login-box h2 { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.3rem; margin-bottom: 8px; }
+  .login-box p { color: var(--muted); font-size: 0.88rem; margin-bottom: 20px; line-height: 1.6; }
+  .login-link {
+    display: inline-block; padding: 12px 28px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px; color: #000;
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 0.85rem; letter-spacing: 0.1em;
+    text-transform: uppercase; text-decoration: none;
+  }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* Wario image */
+  .wario-img { width: 60px; height: 60px; object-fit: contain; image-rendering: pixelated; }
+  .wario-cell-img { width: 48px; height: 48px; object-fit: contain; image-rendering: pixelated; }
+  @media (max-width: 480px) { .wario-cell-img { width: 38px; height: 38px; } }
+
+  .scratch-cover {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; font-family: 'Syne', sans-serif;
+    font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+    border-radius: 10px;
+    transition: opacity 0.15s;
+  }
+  .scratch-cell:hover .scratch-cover { color: rgba(255,255,255,0.7); }
+
+  /* confetti burst */
+  .confetti-burst {
+    position: fixed; inset: 0; pointer-events: none; z-index: 400;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2.5rem; opacity: 0;
+  }
+  .confetti-burst.pop { animation: confettiBurst 1.2s ease forwards; }
+  @keyframes confettiBurst {
+    0%{opacity:0;transform:scale(0.5)} 20%{opacity:1;transform:scale(1.3)} 80%{opacity:1} 100%{opacity:0;transform:scale(1.5)}
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <a class="back-btn" href="index.html">← Back</a>
+  <div class="header-title">🎟️ <span>Lottery Tickets</span></div>
+  <div class="pb-display">
+    <span class="pb-label">💰</span>
+    <span class="pb-val" id="pbDisplay">—</span>
+  </div>
+</div>
+
+<div class="main">
+  <div class="page-intro">
+    <h2>🎟️ Pick Your Ticket</h2>
+    <p>Set your price, scratch to reveal. Each ticket plays differently.</p>
+  </div>
+
+  <!-- TICKET GRID -->
+  <div class="ticket-grid">
+
+    <!-- ① CHUBBY CARNIVAL -->
+    <div class="ticket-card carnival">
+      <div class="ticket-header">
+        <div class="ticket-banner">🎪 Chubby Carnival</div>
+        <div class="ticket-tagline">Match 3 in any row, column, or diagonal</div>
+      </div>
+      <div class="ticket-art">
+        <div class="ticket-art-bg">🎡</div>
+        🎪🎠🎡
+      </div>
+      <div class="ticket-footer">
+        <div class="prize-table">
+          <div class="prize-row-item"><span class="prize-sym">🎪🎪🎪</span><span class="prize-mult">25×</span></div>
+          <div class="prize-row-item"><span class="prize-sym">🎡🎡🎡</span><span class="prize-mult">10×</span></div>
+          <div class="prize-row-item"><span class="prize-sym">🎠🎠🎠</span><span class="prize-mult">5×</span></div>
+          <div class="prize-row-item"><span class="prize-sym">🎈🎈🎈</span><span class="prize-mult">3×</span></div>
+          <div class="prize-row-item"><span class="prize-sym">🎯/🃏/💨 ×3</span><span class="prize-mult">bet back</span></div>
+        </div>
+        <div class="ticket-odds-headline">
+          3×3 grid &nbsp;·&nbsp; Any match: <span>~10%</span> &nbsp;·&nbsp; Jackpot: <span>1 in 1,000</span>
+        </div>
+        <div class="price-row">
+          <input class="price-input" id="price-carnival" type="number" value="100" min="1" placeholder="Bet amount">
+          <button class="buy-btn" onclick="buyTicket('carnival')">Buy 🎟️</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ② TUBBO TICKET -->
+    <div class="ticket-card tubbo">
+      <div class="ticket-header">
+        <div class="ticket-banner">🐄 Tubbo Ticket</div>
+        <div class="ticket-tagline">Reveal 3 prizes — multipliers combine</div>
+      </div>
+      <div class="ticket-art">
+        <div class="ticket-art-bg">🐄</div>
+        🐄🌿🍀
+      </div>
+      <div class="ticket-footer">
+        <div class="prize-table">
+          <div class="prize-row-item"><span class="prize-sym">🍀 Clover</span><span class="prize-mult">50×</span></div>
+          <div class="prize-row-item"><span class="prize-sym">🌟 Star</span><span class="prize-mult">15×</span></div>
+          <div class="prize-row-item"><span class="prize-sym">🐄 Cow</span><span class="prize-mult">5×</span></div>
+          <div class="prize-row-item"><span class="prize-sym">🌿 Grass</span><span class="prize-mult">2×</span></div>
+          <div class="prize-row-item"><span class="prize-sym">🌾/💧/🪨</span><span class="prize-mult">bet back</span></div>
+        </div>
+        <div class="ticket-odds-headline">
+          3 cells to reveal &nbsp;·&nbsp; Any win: <span>~15%</span> &nbsp;·&nbsp; Jackpot: <span>1 in 2,000</span>
+        </div>
+        <div class="price-row">
+          <input class="price-input" id="price-tubbo" type="number" value="100" min="1" placeholder="Bet amount">
+          <button class="buy-btn" onclick="buyTicket('tubbo')">Buy 🎟️</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ③ WARIO'S GOLD MINE -->
+    <div class="ticket-card wario">
+      <div class="ticket-header">
+        <div class="ticket-banner">⛏️ Wario's Gold Mine</div>
+        <div class="ticket-tagline">Find Wario — claim his gold</div>
+      </div>
+      <div class="ticket-art">
+        <div class="ticket-art-bg">💰</div>
+        <img src="assets/wario.png" class="wario-card-art" alt="Wario"
+          onerror="this.src='wario.png'; this.onerror=null;">
+      </div>
+      <div class="ticket-footer">
+        <div class="prize-table">
+          <div class="prize-row-item"><span class="prize-sym">1 Wario</span><span class="prize-mult">4×</span></div>
+          <div class="prize-row-item"><span class="prize-sym">2 Warios</span><span class="prize-mult">50×</span></div>
+          <div class="prize-row-item"><span class="prize-sym">3 Warios</span><span class="prize-mult">1,000×</span></div>
+          <div class="prize-row-item"><span class="prize-sym">4 Warios</span><span class="prize-mult">10,000×</span></div>
+        </div>
+        <div class="ticket-odds-headline">
+          4 cells to scratch &nbsp;·&nbsp; Any win: <span>~34%</span> &nbsp;·&nbsp; Jackpot: <span>1 in 10,000</span>
+        </div>
+        <div class="price-row">
+          <input class="price-input" id="price-wario" type="number" value="100" min="1" placeholder="Bet amount">
+          <button class="buy-btn" onclick="buyTicket('wario')">Buy 🎟️</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /ticket-grid -->
+
+  <!-- HISTORY -->
+  <div class="history-section">
+    <div class="history-title">Recent Tickets</div>
+    <div class="history-list" id="historyList">
+      <div style="color:var(--muted);font-size:0.82rem;text-align:center;padding:16px;">No tickets purchased yet</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SCRATCH OVERLAYS ── -->
+
+<!-- CARNIVAL -->
+<div class="scratch-overlay" id="carnivalOverlay">
+  <div class="scratch-modal carnival-modal">
+    <div class="scratch-modal-header">
+      <div class="scratch-modal-title">🎪 Chubby Carnival</div>
+      <button class="scratch-close" onclick="closeOverlay('carnivalOverlay')">✕</button>
+    </div>
+    <div class="scratch-bet">Ticket price: <span id="carnival-bet-display">0 PB</span></div>
+    <div class="scratch-grid carnival-grid" id="carnivalGrid"></div>
+    <button class="scratch-all-btn" onclick="revealAll('carnival')">Reveal All</button>
+    <div class="scratch-result" id="carnivalResult">
+      <div class="result-big" id="carnivalResultBig"></div>
+      <div class="result-sub" id="carnivalResultSub"></div>
+    </div>
+  </div>
+</div>
+
+<!-- TUBBO -->
+<div class="scratch-overlay" id="tubboOverlay">
+  <div class="scratch-modal tubbo-modal">
+    <div class="scratch-modal-header">
+      <div class="scratch-modal-title">🐄 Tubbo Ticket</div>
+      <button class="scratch-close" onclick="closeOverlay('tubboOverlay')">✕</button>
+    </div>
+    <div class="scratch-bet">Ticket price: <span id="tubbo-bet-display">0 PB</span></div>
+    <div class="scratch-grid tubbo-grid" id="tubboGrid"></div>
+    <button class="scratch-all-btn" onclick="revealAll('tubbo')">Reveal All</button>
+    <div class="scratch-result" id="tubboResult">
+      <div class="result-big" id="tubboResultBig"></div>
+      <div class="result-sub" id="tubboResultSub"></div>
+    </div>
+  </div>
+</div>
+
+<!-- WARIO -->
+<div class="scratch-overlay" id="warioOverlay">
+  <div class="scratch-modal wario-modal">
+    <div class="scratch-modal-header">
+      <div class="scratch-modal-title">⛏️ Wario's Gold Mine</div>
+      <button class="scratch-close" onclick="closeOverlay('warioOverlay')">✕</button>
+    </div>
+    <div class="scratch-bet">Ticket price: <span id="wario-bet-display">0 PB</span></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:0 20px 10px;font-size:0.7rem;text-align:center;">
+      <div style="color:var(--muted)">1 Wario<br><span style="color:var(--accent);font-family:'DM Mono',monospace;font-weight:700">4×</span></div>
+      <div style="color:var(--muted)">2 Warios<br><span style="color:var(--accent);font-family:'DM Mono',monospace;font-weight:700">50×</span></div>
+      <div style="color:var(--muted)">3 Warios<br><span style="color:var(--accent);font-family:'DM Mono',monospace;font-weight:700">1,000×</span></div>
+      <div style="color:var(--muted)">4 Warios<br><span style="color:var(--accent);font-family:'DM Mono',monospace;font-weight:700">10,000×</span></div>
+    </div>
+    <div class="scratch-grid wario-grid" id="warioGrid"></div>
+    <button class="scratch-all-btn" onclick="revealAll('wario')">Reveal All</button>
+    <div class="scratch-result" id="warioResult">
+      <div class="result-big" id="warioResultBig"></div>
+      <div class="result-sub" id="warioResultSub"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Login prompt -->
+<div class="login-prompt" id="loginPrompt">
+  <div class="login-box">
+    <h2>Sign in to play</h2>
+    <p>You need a Pam's Casino account to buy lottery tickets.</p>
+    <a class="login-link" href="index.html">Sign In →</a>
+  </div>
+</div>
+
+<!-- Confetti -->
+<div class="confetti-burst" id="confettiBurst">🎉✨🎊💫🌟</div>
+
+<script>
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let userPB = 0;
+
+// ── State for active ticket ──────────────────────────────────
+let activeTicket = null; // { type, bet, cells, revealed, settled }
+
+// ── Auth ─────────────────────────────────────────────────────
+window.onload = async () => {
+  const saved = localStorage.getItem('vault_session');
+  if (!saved) { document.getElementById('loginPrompt').classList.add('active'); return; }
+  const { username } = JSON.parse(saved);
+  const { data, error } = await db.from('users').select('*').eq('username', username).single();
+  if (error || !data) { document.getElementById('loginPrompt').classList.add('active'); return; }
+  if (data.status === 'terminated') {
+    document.getElementById('loginPrompt').classList.add('active');
+    document.querySelector('.login-box h2').textContent = 'Account Terminated';
+    document.querySelector('.login-box p').textContent = 'Your account cannot access lottery tickets.';
+    document.querySelector('.login-link').style.display = 'none';
+    return;
+  }
+  currentUser = data;
+  userPB = data.pam_bucks ?? 10000;
+  updatePBDisplay();
+};
+
+function updatePBDisplay() {
+  document.getElementById('pbDisplay').textContent = userPB.toLocaleString() + ' PB';
+}
+
+// ── TICKET DEFINITIONS ───────────────────────────────────────
+
+// ① CHUBBY CARNIVAL
+// 3×3 grid. Match 3 in a row = win. ~5% win rate, jackpot ~1 in 2000.
+const CARNIVAL_SYMBOLS = [
+  { sym: '🎪', name: 'Big Top',   mult: 25, weight: 3  },
+  { sym: '🎡', name: 'Ferris',    mult: 10, weight: 4  },
+  { sym: '🎠', name: 'Carousel',  mult: 5,  weight: 14  },
+  { sym: '🎈', name: 'Balloon',   mult: 3,  weight: 18  },
+  { sym: '🍭', name: 'Candy',     mult: 2,  weight: 22 },
+  { sym: '🎯', name: 'Dart',      mult: 1,  weight: 40 },
+  { sym: '🃏', name: 'Joker',     mult: 1,  weight: 40 },
+  { sym: '💨', name: 'Miss',      mult: 1,  weight: 40 },
+];
+const CARNIVAL_TOTAL_W = CARNIVAL_SYMBOLS.reduce((s,x)=>s+x.weight,0);
+
+function pickCarnivalSym() {
+  let r = Math.random() * CARNIVAL_TOTAL_W;
+  for (const s of CARNIVAL_SYMBOLS) { r -= s.weight; if (r <= 0) return s; }
+  return CARNIVAL_SYMBOLS[CARNIVAL_SYMBOLS.length-1];
+}
+
+function generateCarnivalTicket(bet) {
+  const allLines = [
+    [0,1,2],[3,4,5],[6,7,8], // rows
+    [0,3,6],[1,4,7],[2,5,8], // columns
+    [0,4,8],[2,4,6],         // diagonals
+  ];
+
+  const roll = Math.random();
+  let cells = Array(9).fill(null).map(() => pickCarnivalSym());
+
+  if (roll < 0.001) {
+    // Jackpot ~1 in 1000
+    const line = allLines[Math.floor(Math.random() * allLines.length)];
+    line.forEach(i => cells[i] = {...CARNIVAL_SYMBOLS[0]});
+  } else if (roll < 0.10) {
+    // Win ~10% — pick a winning symbol (excluding jackpot), force it on a random line
+    const winSyms = CARNIVAL_SYMBOLS.filter(s => s.mult > 0 && s !== CARNIVAL_SYMBOLS[0]);
+    const wSym = winSyms[Math.floor(Math.random() * winSyms.length)];
+    const line = allLines[Math.floor(Math.random() * allLines.length)];
+    line.forEach(i => cells[i] = {...wSym});
+  } else {
+    // Lose — only block lines where all 3 match AND have mult > 1 (dud matches = bet back, allowed)
+    for (const [a,b,c] of allLines) {
+      if (cells[a].sym === cells[b].sym && cells[b].sym === cells[c].sym && cells[a].mult > 1) {
+        let attempts = 0;
+        while (cells[a].sym === cells[b].sym && cells[b].sym === cells[c].sym && cells[c].mult > 1 && attempts++ < 20) {
+          cells[c] = pickCarnivalSym();
+        }
+      }
+    }
+  }
+
+  // Detect best win across all lines (mult >= 1 counts — 1× = bet back)
+  let winMult = 0, winLine = [];
+  for (const [a,b,c] of allLines) {
+    if (cells[a].sym === cells[b].sym && cells[b].sym === cells[c].sym && cells[a].mult >= 1) {
+      if (cells[a].mult > winMult) { winMult = cells[a].mult; winLine = [a,b,c]; }
+    }
+  }
+
+  return { cells, winMult, winLine };
+}
+
+// ② TUBBO TICKET
+// 3×2 grid (6 cells). Each reveals a prize amount or blank.
+// Player takes the HIGHEST revealed value. ~15% any win, jackpot ~1 in 2000.
+const TUBBO_PRIZES = [
+  { sym: '🍀', name: 'Clover',  mult: 50,  weight: 0.3 },
+  { sym: '🌟', name: 'Star',    mult: 15,  weight: 1   },
+  { sym: '🐄', name: 'Cow',     mult: 5,   weight: 3   },
+  { sym: '🌿', name: 'Grass',   mult: 2,   weight: 8   },
+  { sym: '🥕', name: 'Carrot',  mult: 1.5, weight: 12  },
+  { sym: '🌾', name: 'Wheat',   mult: 0,   weight: 50  },
+  { sym: '💧', name: 'Water',   mult: 0,   weight: 70  },
+  { sym: '🪨', name: 'Rock',    mult: 0,   weight: 70  },
+];
+const TUBBO_TOTAL_W = TUBBO_PRIZES.reduce((s,x)=>s+x.weight,0);
+
+function pickTubboPrize() {
+  let r = Math.random() * TUBBO_TOTAL_W;
+  for (const p of TUBBO_PRIZES) { r -= p.weight; if (r <= 0) return p; }
+  return TUBBO_PRIZES[TUBBO_PRIZES.length-1];
+}
+
+function generateTubboTicket(bet) {
+  const cells = Array(3).fill(null).map(() => pickTubboPrize());
+
+  const allSame = cells[0].sym === cells[1].sym && cells[1].sym === cells[2].sym;
+  const allDuds = cells.every(c => c.mult <= 1);
+
+  if (allSame && allDuds) {
+    // 3 of the same dud symbol = bet back
+    return { cells, winMult: 1, winLine: [0,1,2] };
+  }
+
+  // Combine all prize multipliers (ignore dud cells with mult<=1)
+  const prizeTotal = cells.reduce((sum, c) => sum + (c.mult > 1 ? c.mult : 0), 0);
+  const winLine = cells.map((c,i) => c.mult > 1 ? i : -1).filter(i => i >= 0);
+  return { cells, winMult: prizeTotal, winLine };
+}
+
+// ③ WARIO'S GOLD MINE
+// 2×2 grid (4 cells). Each is either Wario or a dud (rock/dirt).
+// 1 Wario = 3×, 2 Warios = 20×, 3 Warios = 75×, 4 Warios = 200×.
+// Each cell has ~20% chance to be Wario independently.
+const WARIO_CELLS = [
+  { sym: 'wario', name: 'Wario!', isWario: true  },
+  { sym: '🪨',    name: 'Rock',   isWario: false, mult: 0 },
+  { sym: '💨',    name: 'Dirt',   isWario: false, mult: 0 },
+  { sym: '🕳️',   name: 'Hole',   isWario: false, mult: 0 },
+];
+// Each cell: 10% Wario. P(≥1) ≈ 34.4%, P(2) ≈ 4.86%, P(3) ≈ 0.324%, P(4) ≈ 0.01%
+const WARIO_MULT_TABLE = { 0: 0, 1: 4, 2: 50, 3: 1000, 4: 10000 };
+const WARIO_DUD_SYMS = ['🪨','💨','🕳️','⛏️'];
+
+function generateWarioTicket(bet) {
+  const cells = Array(4).fill(null).map(() => {
+    if (Math.random() < 0.04) return { sym: 'wario', name: 'Wario!', isWario: true };
+    const d = WARIO_DUD_SYMS[Math.floor(Math.random()*WARIO_DUD_SYMS.length)];
+    return { sym: d, name: 'Empty', isWario: false };
+  });
+  const warioCount = cells.filter(c=>c.isWario).length;
+  const winMult = WARIO_MULT_TABLE[warioCount] || 0;
+  const winLine = cells.map((c,i)=>c.isWario?i:-1).filter(i=>i>=0);
+  return { cells, winMult, winLine, warioCount };
+}
+
+// ── BUY TICKET ───────────────────────────────────────────────
+async function buyTicket(type) {
+  if (!currentUser) { document.getElementById('loginPrompt').classList.add('active'); return; }
+
+  const bet = parseInt(document.getElementById('price-' + type).value);
+  if (isNaN(bet) || bet < 1) { alert('Enter a valid bet amount.'); return; }
+  if (bet > userPB) { alert(`Not enough PB. You have ${userPB.toLocaleString()} PB.`); return; }
+
+  // Deduct and save to DB BEFORE opening the modal — so navigating away still costs the bet
+  userPB -= bet;
+  updatePBDisplay();
+  soundBuy();
+  await db.from('users').update({ pam_bucks: userPB }).eq('id', currentUser.id);
+
+  let ticket;
+  if (type === 'carnival') ticket = generateCarnivalTicket(bet);
+  else if (type === 'tubbo') ticket = generateTubboTicket(bet);
+  else ticket = generateWarioTicket(bet);
+
+  activeTicket = { type, bet, ...ticket, revealed: new Set(), settled: false };
+
+  openScratch(type, bet, ticket);
+}
+
+// ── OPEN SCRATCH MODAL ───────────────────────────────────────
+function openScratch(type, bet, ticket) {
+  const overlayId = type + 'Overlay';
+  const gridId = type + 'Grid';
+
+  // Reset result
+  const result = document.getElementById(type + 'Result');
+  result.className = 'scratch-result';
+
+  document.getElementById(type + '-bet-display').textContent = bet.toLocaleString() + ' PB';
+  const grid = document.getElementById(gridId);
+  grid.innerHTML = '';
+
+  ticket.cells.forEach((cell, i) => {
+    const div = document.createElement('div');
+    div.className = 'scratch-cell unscratched';
+    div.id = `${type}-cell-${i}`;
+
+    // Hidden content
+    const content = document.createElement('div');
+    content.className = 'cell-content';
+
+    if (cell.isWario === true || cell.sym === 'wario') {
+      const img = document.createElement('img');
+      img.src = 'assets/wario.png';
+      img.className = 'wario-cell-img'; img.alt = 'Wario';
+      img.onerror = () => { img.src = 'wario.png'; img.onerror = null; };
+      content.appendChild(img);
+    } else {
+      const sym = document.createElement('div');
+      sym.className = 'cell-symbol';
+      sym.textContent = cell.sym;
+      content.appendChild(sym);
+
+      if (cell.mult && cell.mult > 0) {
+        const mult = document.createElement('div');
+        mult.className = 'cell-mult';
+        mult.textContent = cell.mult + '×';
+        if (type === 'carnival') mult.style.color = '#d97bff';
+        else if (type === 'tubbo') mult.style.color = '#4ade80';
+        else mult.style.color = 'var(--accent)';
+        content.appendChild(mult);
+      }
+    }
+
+    // Scratch cover
+    const cover = document.createElement('div');
+    cover.className = 'scratch-cover';
+    cover.textContent = '✦ scratch';
+
+    div.appendChild(content);
+    div.appendChild(cover);
+    div.addEventListener('click', () => revealCell(type, i));
+    grid.appendChild(div);
+  });
+
+  document.getElementById(overlayId).classList.add('active');
+}
+
+function revealCell(type, idx) {
+  if (!activeTicket || activeTicket.type !== type) return;
+  if (activeTicket.revealed.has(idx)) return;
+  activeTicket.revealed.add(idx);
+
+  const cell = document.getElementById(`${type}-cell-${idx}`);
+  cell.classList.remove('unscratched');
+  cell.classList.add('revealed');
+  soundScratch();
+
+  // Check if this is a winning cell
+  if (activeTicket.winLine.includes(idx)) {
+    cell.classList.add('winner', type + '-win');
+  }
+
+  // Once all revealed, settle
+  if (activeTicket.revealed.size === activeTicket.cells.length) {
+    settleTicket(type);
+  }
+}
+
+function revealAll(type) {
+  if (!activeTicket || activeTicket.type !== type) return;
+  activeTicket.cells.forEach((_, i) => revealCell(type, i));
+}
+
+async function settleTicket(type) {
+  if (activeTicket.settled) return;
+  activeTicket.settled = true;
+
+  const { bet, winMult } = activeTicket;
+  const winAmt = Math.round(bet * winMult);
+  const net = winAmt - bet;
+
+  if (winMult > 0) {
+    userPB += winAmt;
+    soundWin(winMult);
+    await db.from('users').update({ pam_bucks: userPB }).eq('id', currentUser.id);
+    updatePBDisplay();
+  } else {
+    soundLose();
+    await db.from('users').update({ pam_bucks: userPB }).eq('id', currentUser.id);
+  }
+
+  // Show result
+  const result = document.getElementById(type + 'Result');
+  const big = document.getElementById(type + 'ResultBig');
+  const sub = document.getElementById(type + 'ResultSub');
+
+  if (winMult > 0) {
+    const isBetBack = winAmt === bet;
+    result.className = 'scratch-result win';
+    big.className = 'result-big win-text';
+    big.textContent = isBetBack ? `Bet Returned` : `+${winAmt.toLocaleString()} PB  ${winMult}×`;
+
+    if (type === 'wario') {
+      const wc = activeTicket.warioCount;
+      sub.textContent = `Found ${wc} Wario${wc>1?'s':''}! ${wc===4?'JACKPOT! ':''}You won ${winMult}× your bet!`;
+    } else if (type === 'tubbo') {
+      if (isBetBack) sub.textContent = 'All duds — but your bet comes back!';
+      else sub.textContent = `Combined multiplier: ${winMult}× your bet!`;
+    } else {
+      if (isBetBack) sub.textContent = 'Three of a kind — your bet comes back!';
+      else sub.textContent = `${winMult}× multiplier — you won!`;
+    }
+
+    // Confetti for big wins
+    if (winMult >= 10) confetti();
+  } else {
+    result.className = 'scratch-result loss';
+    big.className = 'result-big loss-text';
+    big.textContent = 'No Win';
+    sub.textContent = type === 'wario' ? 'No Warios found. Better luck next time!'
+                    : type === 'tubbo' ? 'No prizes. Try again!'
+                    : 'No matching symbols. Try again!';
+  }
+
+  // Add to history
+  addHistory(type, bet, net, winMult);
+}
+
+function confetti() {
+  const el = document.getElementById('confettiBurst');
+  el.classList.remove('pop');
+  void el.offsetWidth;
+  el.classList.add('pop');
+}
+
+function closeOverlay(id) {
+  document.getElementById(id).classList.remove('active');
+  activeTicket = null;
+}
+
+// Click outside to close
+document.querySelectorAll('.scratch-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) {
+      overlay.classList.remove('active');
+      activeTicket = null;
+    }
+  });
+});
+
+// ── SOUND SYSTEM ─────────────────────────────────────────────
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+
+function getAudio() {
+  if (!audioCtx) audioCtx = new AudioCtx();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function playTone(freq, type, vol, dur, delay=0) {
+  try {
+    const ctx = getAudio();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+    gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+    gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + delay + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + dur);
+    osc.start(ctx.currentTime + delay);
+    osc.stop(ctx.currentTime + delay + dur + 0.05);
+  } catch(e) {}
+}
+
+function soundScratch() {
+  try {
+    const ctx = getAudio();
+    const bufSize = ctx.sampleRate * 0.08;
+    const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i=0; i<bufSize; i++) data[i] = (Math.random()*2-1) * (1 - i/bufSize);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass'; filter.frequency.value = 1800; filter.Q.value = 1.2;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.25;
+    src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+    src.start();
+  } catch(e) {}
+}
+
+function soundBuy() {
+  playTone(400, 'sine', 0.3, 0.1);
+  playTone(600, 'sine', 0.25, 0.1, 0.1);
+  playTone(800, 'sine', 0.2, 0.15, 0.2);
+}
+
+function soundWin(mult) {
+  if (mult >= 50) {
+    // Jackpot fanfare
+    [523,659,784,1047].forEach((f,i) => playTone(f,'square',0.2,0.3,i*0.15));
+    setTimeout(() => [1047,1319,1568].forEach((f,i) => playTone(f,'sine',0.25,0.4,i*0.1)), 700);
+  } else if (mult >= 10) {
+    [523,659,784].forEach((f,i) => playTone(f,'triangle',0.25,0.3,i*0.12));
+  } else {
+    playTone(523,'sine',0.2,0.12);
+    playTone(659,'sine',0.2,0.15,0.13);
+  }
+}
+
+function soundLose() {
+  playTone(220,'sawtooth',0.15,0.2);
+  playTone(180,'sawtooth',0.1,0.3,0.15);
+}
+
+function addHistory(type, bet, net, mult) {
+  const list = document.getElementById('historyList');
+  const placeholder = list.querySelector('div[style]');
+  if (placeholder) placeholder.remove();
+
+  const icons = { carnival: '🎪', tubbo: '🐄', wario: '⛏️' };
+  const names = { carnival: 'Chubby Carnival', tubbo: 'Tubbo Ticket', wario: "Wario's Gold Mine" };
+
+  const item = document.createElement('div');
+  item.className = 'history-item ' + (net > 0 ? 'win' : 'loss');
+  item.innerHTML = `
+    <span class="history-ticket">${icons[type]}</span>
+    <span class="history-name">${names[type]} &nbsp;·&nbsp; ${mult > 0 ? mult+'×' : 'No win'}</span>
+    <span style="color:var(--muted);font-family:'DM Mono',monospace;font-size:0.78rem">${bet.toLocaleString()} PB</span>
+    <span class="history-amt ${net>0?'pos':'neg'}">${net>=0?'+':''}${net.toLocaleString()} PB</span>
+  `;
+  list.insertBefore(item, list.firstChild);
+  while (list.children.length > 15) list.removeChild(list.lastChild);
+}
+</script>
+</body>
+</html>
